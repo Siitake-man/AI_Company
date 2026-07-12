@@ -1,0 +1,26 @@
+# Gitの改行コード自動変換ルール
+# WindowsとMac/Linux混在環境での文字化け・差分ノイズを防ぐ
+
+# デフォルト：リポジトリ内はLFで統一、チェックアウト時のみCRLFに変換
+* text=auto eol=lf
+
+# ソースコード系：LF強制
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.rs    text eol=lf
+*.toml  text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.sh    text eol=lf
+
+# Windowsバイナリ（変換しない）
+*.exe   binary
+*.dll   binary
+*.msi   binary
