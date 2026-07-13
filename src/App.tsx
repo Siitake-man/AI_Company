@@ -255,7 +255,7 @@ function App() {
           `SELECT m.id, m.name, m.role, m.avatar_id, d.name as dept_name
            FROM members m
            JOIN departments d ON m.department_id = d.id
-           WHERE d.project_id = $1
+           WHERE d.project_id = ?
            ORDER BY d.display_order, m.id`,
            [selectedProjectId]
         );
