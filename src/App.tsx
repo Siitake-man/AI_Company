@@ -20,7 +20,7 @@ function App() {
   const [generateError, setGenerateError] = useState<string>("");
 
   // 画面遷移・APIキー関連の状態
-  const [currentScreen, setCurrentScreen] = useState<"apiKeySetup" | "promptTest" | "settings">("apiKeySetup");
+  const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings">("apiKeySetup");
   const [apiKeysStatus, setApiKeysStatus] = useState<{
     openai: boolean;
     anthropic: boolean;
@@ -46,6 +46,34 @@ function App() {
   const [editCoreProfile, setEditCoreProfile] = useState<string>("");
   const [profileSaveSuccess, setProfileSaveSuccess] = useState<string>("");
   const [profileSaveError, setProfileSaveError] = useState<string>("");
+
+
+  // 役割に応じた背景色を取得（DESIGN_SYSTEM §2.3）
+  const getRoleColor = (roleStr: string, deptName: string) => {
+    const text = (roleStr + deptName).toLowerCase();
+    if (text.includes("戦略") || text.includes("経営") || text.includes("pm")) return "#FAD8C3";
+    if (text.includes("ui") || text.includes("ux") || text.includes("デザイン")) return "#D5E8D4";
+    if (text.includes("エンジニア") || text.includes("技術")) return "#E1D5E7";
+    if (text.includes("インフラ") || text.includes("セキュリティ")) return "#D4E8D4";
+    if (text.includes("法務") || text.includes("コンプライアンス")) return "#E8E8E4";
+    if (text.includes("思考スタイル") || text.includes("ドリーマー") || text.includes("代弁者")) return "#FEF3C7";
+    return "var(--color-panel)";
+  };
+
+  const getEmojiForRole = (deptName: string, role: string) => {
+    const text = (deptName + role).toLowerCase();
+    if (text.includes("法務")) return "⚖️";
+    if (text.includes("エンジニア") || text.includes("技術")) return "💻";
+    if (text.includes("戦略") || text.includes("経営")) return "📊";
+    if (text.includes("マーケティング")) return "📢";
+    if (text.includes("思考スタイル")) return "💡";
+    return "🧑‍💼";
+  };
+
+  // S2 (Dashboard) 関連の状態
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [projectMembers, setProjectMembers] = useState<any[]>([]);
 
   // 初期化とAPIキーの存在チェック
   useEffect(() => {
@@ -192,11 +220,52 @@ function App() {
 
     // キーが1つ以上登録されていれば、初期起動時の強制セットアップをスキップ可能にする
     if (hasAny) {
-      setCurrentScreen("promptTest");
+      setCurrentScreen("home");
     } else {
       setCurrentScreen("apiKeySetup");
     }
   }
+
+
+  // プロジェクト一覧の取得
+  useEffect(() => {
+    async function fetchProjects() {
+      if (!dbInstance) return;
+      try {
+        const result = await dbInstance.select<{id: number, name: string, purpose: string}[]>(
+          "SELECT id, name, purpose FROM projects"
+        );
+        setProjects(result);
+        if (result.length > 0 && selectedProjectId === null) {
+          setSelectedProjectId(result[0].id);
+        }
+      } catch (e) {
+        console.error("Failed to fetch projects", e);
+      }
+    }
+    fetchProjects();
+  }, [dbInstance]);
+
+  // 選択中プロジェクトのメンバー取得
+  useEffect(() => {
+    async function fetchMembers() {
+      if (!dbInstance || selectedProjectId === null) return;
+      try {
+        const result = await dbInstance.select<{id: number, name: string, role: string, avatar_id: string, dept_name: string}[]>(
+          `SELECT m.id, m.name, m.role, m.avatar_id, d.name as dept_name
+           FROM members m
+           JOIN departments d ON m.department_id = d.id
+           WHERE d.project_id = ?
+           ORDER BY d.display_order, m.id`,
+           [selectedProjectId]
+        );
+        setProjectMembers(result);
+      } catch (e) {
+        console.error("Failed to fetch members", e);
+      }
+    }
+    fetchMembers();
+  }, [dbInstance, selectedProjectId]);
 
   // APIキーの個別保存処理
   async function handleSaveKey(provider: ProviderType) {
@@ -263,7 +332,7 @@ function App() {
     async function generatePrompt() {
       try {
         setGenerateError("");
-        const prompt = await getMergedSystemPrompt(dbInstance, {
+        const prompt = await getMergedSystemPrompt(dbInstance as Database, {
           userId: 1,
           projectId: 1,
           memberId: selectedMemberId,
@@ -280,21 +349,21 @@ function App() {
 
   if (loading) {
     return (
-      <div className="p-8 bg-[#fdf6e3] min-h-screen flex items-center justify-center text-[#3d2b1f]">
+      <div className="p-8 bg-[var(--color-bg)] min-h-screen flex items-center justify-center text-[var(--color-text)]">
         <p className="text-xl font-bold animate-pulse">システム起動中（ローカルDB＆金庫の接続中）...</p>
       </div>
     );
   }
 
   return (
-    <main className="p-8 bg-[#fdf6e3] min-h-screen text-[#3d2b1f] flex flex-col gap-6 font-sans">
+    <main className="p-8 bg-[var(--color-bg)] min-h-screen text-[var(--color-text)] flex flex-col gap-6">
       {/* 共通ヘッダー */}
-      <div className="border-b-4 border-[#c8a96e] pb-4 flex justify-between items-center bg-[#f5e6c8] p-4 rounded-lg shadow-sm">
+      <div className="border-b-4 border-[var(--color-border-inner)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm">
         <div>
           <h1 className="text-2xl font-black tracking-wider flex items-center gap-2">
-            🪵 AIカンパニー <span className="text-xs bg-[#f59e0b] text-white px-2 py-1 rounded font-normal">Phase 1</span>
+            🪵 AIカンパニー <span className="text-xs bg-[var(--color-accent)] text-white px-2 py-1 rounded font-normal">Phase 1</span>
           </h1>
-          <p className="text-xs mt-1 text-[#664d3c] font-medium">
+          <p className="text-xs mt-1 text-[var(--color-text-sub)] font-medium">
             あなただけの専門家チームを持つ、ローカル完結型デスクトップアプリ
           </p>
         </div>
@@ -303,8 +372,8 @@ function App() {
             onClick={() => setCurrentScreen("settings")}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
               currentScreen === "settings"
-                ? "bg-[#f59e0b] text-white border-[#d97706]"
-                : "bg-white text-[#3d2b1f] border-[#c8a96e] hover:bg-gray-50"
+                ? "bg-[var(--color-accent)] text-white border-[var(--color-accent-shadow)]"
+                : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
             }`}
             disabled={!Object.values(apiKeysStatus).some((v) => v)}
             title={!Object.values(apiKeysStatus).some((v) => v) ? "APIキーを設定してください" : "設定画面を開く"}
@@ -322,8 +391,8 @@ function App() {
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
               currentScreen === "promptTest"
-                ? "bg-[#f59e0b] text-white border-[#d97706]"
-                : "bg-white text-[#3d2b1f] border-[#c8a96e] hover:bg-gray-50"
+                ? "bg-[var(--color-accent)] text-white border-[var(--color-accent-shadow)]"
+                : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
             }`}
             disabled={!Object.values(apiKeysStatus).some((v) => v)}
           >
@@ -339,18 +408,140 @@ function App() {
         </div>
       )}
 
+
+      {/* S2: プロジェクト一覧（ホーム）画面 */}
+      {currentScreen === "home" && (
+        <div className="flex-1 flex gap-6 h-[calc(100vh-140px)]">
+          {/* 左サイドバー */}
+          <div className="w-64 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+            <div className="panel-paper p-3 text-center mb-2">
+              <h2 className="font-title text-xl font-bold">プロジェクト一覧</h2>
+            </div>
+
+            <div className="flex-1 flex flex-col gap-2">
+              {projects.map((proj) => (
+                <div
+                  key={proj.id}
+                  onClick={() => setSelectedProjectId(proj.id)}
+                  className={selectedProjectId === proj.id ? "sidebar-item-active" : "sidebar-item"}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🌱</span>
+                    <span className="truncate">{proj.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button className="btn-secondary w-full justify-center mt-auto py-3">
+              ＋ 新しいプロジェクト
+            </button>
+          </div>
+
+          {/* 右メインエリア */}
+          <div className="flex-1 flex flex-col gap-4 overflow-y-auto relative">
+            {selectedProjectId ? (
+              <>
+                {/* ヘッダー情報 */}
+                <div className="panel-paper p-6 flex items-start gap-4">
+                  <div className="text-5xl">🌱</div>
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold mb-2">
+                      {projects.find((p) => p.id === selectedProjectId)?.name}
+                    </h2>
+                    <p className="text-sm text-[var(--color-text-sub)] leading-relaxed">
+                      {projects.find((p) => p.id === selectedProjectId)?.purpose}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 統計情報 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="panel-paper p-4 flex flex-col items-center justify-center">
+                    <span className="text-[var(--color-text-sub)] text-xs font-bold mb-1">メンバー数</span>
+                    <span className="text-2xl font-bold">{projectMembers.length}名</span>
+                  </div>
+                  <div className="panel-paper p-4 flex flex-col items-center justify-center">
+                    <span className="text-[var(--color-text-sub)] text-xs font-bold mb-1">最終会議日</span>
+                    <span className="text-xl font-bold">--</span>
+                  </div>
+                  <div className="panel-paper p-4 flex flex-col items-center justify-center">
+                    <span className="text-[var(--color-text-sub)] text-xs font-bold mb-1">会議回数</span>
+                    <span className="text-2xl font-bold">0回</span>
+                  </div>
+                </div>
+
+                {/* メンバーグリッド */}
+                <div className="mt-4 pb-20">
+                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                    <span>👥</span> チームメンバー
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {projectMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className="panel-paper p-4 flex flex-col gap-3 relative overflow-hidden"
+                        style={{ backgroundColor: getRoleColor(member.role, member.dept_name) }}
+                      >
+                        <div className="flex gap-3 items-start">
+                          <div className="w-12 h-12 bg-white/50 rounded flex items-center justify-center text-3xl border border-[var(--color-border-inner)] avatar-pixel shadow-sm">
+                            {getEmojiForRole(member.dept_name, member.role)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[10px] font-bold text-[var(--color-text-sub)] mb-0.5 truncate">
+                              {member.dept_name}
+                            </div>
+                            <div className="font-bold text-sm truncate">
+                              {member.name}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs bg-white/40 p-2 rounded border border-white/50 text-[var(--color-text-sub)] leading-snug">
+                          {member.role}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* メンバー追加プレースホルダー */}
+                    <div className="panel-paper p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-[#EDD9B0] transition-colors border-dashed border-4 opacity-70">
+                      <span className="text-2xl">＋</span>
+                      <span className="font-bold text-sm">メンバーを追加</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 会議開始ボタン（右下固定） */}
+                <div className="absolute bottom-6 right-6">
+                  <button
+                    onClick={() => alert("会議機能は今後実装予定です")}
+                    className="btn-primary text-lg py-4 px-8 rounded-xl shadow-lg"
+                  >
+                    <span className="text-2xl">🎙️</span> 会議を始める
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="panel-paper p-10 flex flex-col items-center justify-center h-full gap-4 text-[var(--color-text-sub)]">
+                <span className="text-4xl">🌱</span>
+                <p className="font-bold">左のリストからプロジェクトを選択してください</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* S1: APIキー設定画面 */}
       {currentScreen === "apiKeySetup" && (
         <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 mt-4">
           {/* 説明パネル */}
-          <div className="bg-[#f5e6c8] border-2 border-[#c8a96e] p-5 rounded-lg shadow-sm flex flex-col gap-2">
+          <div className="panel-paper p-5 shadow-sm flex flex-col gap-2">
             <h2 className="font-bold text-lg flex items-center gap-1">
               🗝️ 初回設定: APIキーの安全な保管
             </h2>
-            <p className="text-sm leading-relaxed text-[#5c4636]">
+            <p className="text-sm leading-relaxed text-[var(--color-text-sub)]">
               AIカンパニーでは、ユーザーのプライバシーとセキュリティを守るため、APIキーをデータベースではなく、お使いのPCのシステム（Windows: 資格情報マネージャー、Mac: キーチェーン）の<strong>セキュアな金庫</strong>へ直接保管します。平文でディスクに書き込まれることはありません。
             </p>
-            <p className="text-xs text-[#8f6d53] italic mt-1">
+            <p className="text-xs text-[var(--color-text-sub)] italic mt-1">
               ※AI社員の稼働には、少なくとも1つのAPIキー（OpenAI / Anthropic / Gemini）の登録が必要です。
             </p>
           </div>
@@ -372,29 +563,29 @@ function App() {
 
               let placeholder = "";
               let title = "";
-              let badgeColor = "";
+
 
               if (provider === PROVIDERS.OPENAI) {
                 title = "OpenAI API (gpt-4o, etc.)";
                 placeholder = "sk-proj-...";
-                badgeColor = "bg-emerald-600";
+
               } else if (provider === PROVIDERS.ANTHROPIC) {
                 title = "Anthropic Claude API (claude-3-5-sonnet, etc.)";
                 placeholder = "sk-ant-api03-...";
-                badgeColor = "bg-orange-600";
+
               } else if (provider === PROVIDERS.GEMINI) {
                 title = "Google Gemini API (gemini-1.5-pro, etc.)";
                 placeholder = "AIzaSy...";
-                badgeColor = "bg-indigo-600";
+
               }
 
               return (
                 <div
                   key={provider}
-                  className="bg-white border-2 border-[#c8a96e] rounded-lg shadow-sm overflow-hidden flex flex-col"
+                  className="panel-paper bg-white shadow-sm overflow-hidden flex flex-col"
                 >
                   {/* カードヘッダー */}
-                  <div className="bg-[#f5e6c8] px-4 py-3 border-b-2 border-[#c8a96e] flex justify-between items-center">
+                  <div className="bg-[var(--color-panel)] px-4 py-3 border-b-2 border-[var(--color-border-inner)] flex justify-between items-center">
                     <span className="font-bold text-sm tracking-wide">{title}</span>
                     {isSaved ? (
                       <span className="bg-emerald-600 text-white text-xxs px-2.5 py-0.5 rounded-full font-bold shadow-sm flex items-center gap-1 animate-pulse">
@@ -431,11 +622,11 @@ function App() {
                             onChange={(e) =>
                               setInputKeys((prev) => ({ ...prev, [provider]: e.target.value }))
                             }
-                            className="flex-1 px-3 py-2 border-2 border-[#c8a96e] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-sm shadow-inner bg-[#fdf6e3] text-[#3d2b1f]"
+                            className="flex-1 px-3 py-2 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-sm shadow-inner bg-[var(--color-bg)] text-[var(--color-text)]"
                           />
                           <button
                             onClick={() => handleSaveKey(provider)}
-                            className="px-4 py-2 bg-[#f59e0b] hover:bg-[#d97706] text-white rounded-lg font-bold text-sm transition-all border border-[#d97706] shadow-sm flex items-center gap-1 shrink-0"
+                            className="btn-primary text-sm flex items-center gap-1 shrink-0"
                           >
                             📥 保存する
                           </button>
@@ -454,12 +645,12 @@ function App() {
             {Object.values(apiKeysStatus).some((v) => v) ? (
               <button
                 onClick={() => setCurrentScreen("promptTest")}
-                className="px-8 py-3 bg-[#f59e0b] hover:bg-[#d97706] text-white font-extrabold rounded-lg shadow-md border-2 border-[#d97706] tracking-wider transition-all animate-bounce text-sm"
+                className="btn-primary py-3 px-8 text-lg tracking-wider transition-all animate-bounce text-sm"
               >
                 ✨ APIキー設定完了！マージ検証に進む
               </button>
             ) : (
-              <p className="text-xs text-[#8f6d53] italic bg-[#f5e6c8] px-4 py-2 border border-[#c8a96e] rounded-lg">
+              <p className="text-xs text-[var(--color-text-sub)] italic panel-paper px-4 py-2">
                 ※アプリを動かすには、最低1つ以上のAPIキーを金庫に保存してください。
               </p>
             )}
@@ -473,11 +664,11 @@ function App() {
           
           {/* 左ペイン：APIキーの安全な管理（S1の改良・流用） */}
           <div className="flex flex-col gap-6">
-            <div className="bg-[#f5e6c8] border-2 border-[#c8a96e] p-5 rounded-lg shadow-sm">
+            <div className="panel-paper p-5 shadow-sm">
               <h2 className="font-bold text-lg flex items-center gap-1.5">
                 🔑 APIキーの管理 (セキュア金庫)
               </h2>
-              <p className="text-xs leading-relaxed text-[#5c4636] mt-1">
+              <p className="text-xs leading-relaxed text-[var(--color-text-sub)] mt-1">
                 OS標準のセキュア金庫（DPAPI/Keychain）にAPIキーを保管しています。
               </p>
             </div>
@@ -509,8 +700,8 @@ function App() {
                 }
 
                 return (
-                  <div key={provider} className="bg-white border-2 border-[#c8a96e] rounded-lg shadow-sm overflow-hidden flex flex-col text-xs">
-                    <div className="bg-[#f5e6c8] px-3 py-2 border-b-2 border-[#c8a96e] flex justify-between items-center">
+                  <div key={provider} className="panel-paper bg-white shadow-sm overflow-hidden flex flex-col text-xs">
+                    <div className="bg-[var(--color-panel)] px-3 py-2 border-b-2 border-[var(--color-border-inner)] flex justify-between items-center">
                       <span className="font-bold">{title}</span>
                       {isSaved ? (
                         <span className="bg-emerald-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-bold">
@@ -541,11 +732,11 @@ function App() {
                               placeholder={placeholder}
                               value={inputVal}
                               onChange={(e) => setInputKeys((prev) => ({ ...prev, [provider]: e.target.value }))}
-                              className="flex-1 px-2.5 py-1.5 border-2 border-[#c8a96e] rounded focus:outline-none focus:border-[#f59e0b] font-mono text-xs bg-[#fdf6e3]"
+                              className="flex-1 px-2.5 py-1.5 border-2 border-[var(--color-border-inner)] rounded focus:outline-none focus:border-[#f59e0b] font-mono text-xs bg-[var(--color-bg)]"
                             />
                             <button
                               onClick={() => handleSaveKey(provider)}
-                              className="px-3 py-1.5 bg-[#f59e0b] text-white rounded font-bold hover:bg-[#d97706] text-xs"
+                              className="btn-primary text-xs"
                             >
                               保存
                             </button>
@@ -562,11 +753,11 @@ function App() {
 
           {/* 右ペイン：ユーザーコアプロフィール編集（S9の独自機能） */}
           <div className="flex flex-col gap-6">
-            <div className="bg-[#f5e6c8] border-2 border-[#c8a96e] p-5 rounded-lg shadow-sm flex flex-col gap-2">
+            <div className="panel-paper p-5 shadow-sm flex flex-col gap-2">
               <h2 className="font-bold text-lg flex items-center gap-1.5">
                 👤 ユーザー・コアプロフィール (第1層)
               </h2>
-              <p className="text-xs leading-relaxed text-[#5c4636]">
+              <p className="text-xs leading-relaxed text-[var(--color-text-sub)]">
                 全AI社員のシステムプロンプトの最上層（ベース）にマージされる、あなたの価値観、目標、現在の状況などの定義です。
               </p>
             </div>
@@ -582,16 +773,16 @@ function App() {
               </div>
             )}
 
-            <div className="bg-white border-2 border-[#c8a96e] p-4 rounded-lg shadow-sm flex flex-col gap-4">
+            <div className="panel-paper p-4 shadow-sm bg-white flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-[#5c4636]">
+                <label className="text-xs font-bold text-[var(--color-text-sub)]">
                   AI社員が考慮すべきユーザープロフィール（自由記述）:
                 </label>
                 <textarea
                   value={editCoreProfile}
                   onChange={(e) => setEditCoreProfile(e.target.value)}
                   rows={10}
-                  className="w-full p-3 border-2 border-[#c8a96e] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-xs leading-relaxed bg-[#fdf6e3] text-[#3d2b1f] resize-y"
+                  className="w-full p-3 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-xs leading-relaxed bg-[var(--color-bg)] text-[var(--color-text)] resize-y"
                   placeholder="【ユーザー像】〜&#10;【コアバリュー】〜"
                 />
               </div>
@@ -602,7 +793,7 @@ function App() {
                 </span>
                 <button
                   onClick={handleSaveProfile}
-                  className="px-6 py-2 bg-[#f59e0b] hover:bg-[#d97706] text-white rounded-lg font-bold text-xs transition-all border border-[#d97706] shadow-sm"
+                  className="btn-primary text-xs"
                 >
                   💾 プロフィールを保存
                 </button>
@@ -617,7 +808,7 @@ function App() {
       {currentScreen === "promptTest" && (
         <div className="flex-1 flex flex-col gap-6">
           {/* テスト切り替えエリア */}
-          <div className="bg-[#f5e6c8] border-2 border-[#c8a96e] p-4 rounded-lg shadow-sm flex flex-col gap-4">
+          <div className="panel-paper p-4 shadow-sm flex flex-col gap-4">
             <h2 className="font-bold text-lg flex items-center gap-1">
               💡 テストケースの切り替え
             </h2>
@@ -626,8 +817,8 @@ function App() {
                 onClick={() => setSelectedMemberId(1)}
                 className={`flex-1 py-3 px-4 rounded-lg border-2 font-bold transition-all flex flex-col items-center gap-1 ${
                   selectedMemberId === 1
-                    ? "bg-[#f59e0b] text-white border-[#d97706] shadow-md"
-                    : "bg-white text-[#3d2b1f] border-[#c8a96e] hover:bg-gray-50"
+                    ? "bg-[var(--color-accent)] text-white border-[var(--color-accent-shadow)] shadow-md"
+                    : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
                 }`}
               >
                 <span>【ケース1】通常の部署メンバー（法務部・鈴木）</span>
@@ -639,8 +830,8 @@ function App() {
                 onClick={() => setSelectedMemberId(2)}
                 className={`flex-1 py-3 px-4 rounded-lg border-2 font-bold transition-all flex flex-col items-center gap-1 ${
                   selectedMemberId === 2
-                    ? "bg-[#f59e0b] text-white border-[#d97706] shadow-md"
-                    : "bg-white text-[#3d2b1f] border-[#c8a96e] hover:bg-gray-50"
+                    ? "bg-[var(--color-accent)] text-white border-[var(--color-accent-shadow)] shadow-md"
+                    : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
                 }`}
               >
                 <span>【ケース2】思考スタイル（悪魔の代弁者）</span>
@@ -661,7 +852,7 @@ function App() {
           {/* 出力結果表示エリア */}
           <div className="flex-1 flex flex-col gap-2 min-h-[450px]">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-base flex items-center gap-1 text-[#5c4636]">
+              <h3 className="font-bold text-base flex items-center gap-1 text-[var(--color-text-sub)]">
                 📝 マージ出力結果（最終システムプロンプト）:
               </h3>
               <span className="text-xs bg-[#c8a96e] text-white px-3 py-1 rounded font-bold shadow-sm">
@@ -671,7 +862,7 @@ function App() {
             <textarea
               readOnly
               value={mergedPrompt}
-              className="w-full flex-1 p-4 bg-white border-2 border-[#c8a96e] rounded-lg font-mono text-xs leading-relaxed focus:outline-none resize-none shadow-inner text-[#3d2b1f] h-[450px]"
+              className="w-full flex-1 p-4 bg-white border-2 border-[var(--color-border-inner)] rounded-lg font-mono text-xs leading-relaxed focus:outline-none resize-none shadow-inner text-[var(--color-text)] h-[450px]"
               placeholder="プロンプトがここに生成されます..."
             />
           </div>
