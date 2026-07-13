@@ -20,7 +20,7 @@ function App() {
   const [generateError, setGenerateError] = useState<string>("");
 
   // 画面遷移・APIキー関連の状態
-  const [currentScreen, setCurrentScreen] = useState<"apiKeySetup" | "promptTest">("apiKeySetup");
+  const [currentScreen, setCurrentScreen] = useState<"apiKeySetup" | "promptTest" | "settings">("apiKeySetup");
   const [apiKeysStatus, setApiKeysStatus] = useState<{
     openai: boolean;
     anthropic: boolean;
@@ -40,6 +40,12 @@ function App() {
   }>({ openai: "", anthropic: "", gemini: "" });
 
   const [successMsg, setSuccessMsg] = useState<string>("");
+
+  // ユーザーコアプロフィール関連の状態
+  const [coreProfile, setCoreProfile] = useState<string>("");
+  const [editCoreProfile, setEditCoreProfile] = useState<string>("");
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState<string>("");
+  const [profileSaveError, setProfileSaveError] = useState<string>("");
 
   // 初期化とAPIキーの存在チェック
   useEffect(() => {
@@ -147,6 +153,16 @@ function App() {
           );
         }
 
+        // 1.5. ユーザーコアプロフィールの読み込み
+        const userResult = await db.select<{ core_profile: string }[]>(
+          "SELECT core_profile FROM users WHERE id = 1"
+        );
+        if (userResult && userResult.length > 0) {
+          const profile = userResult[0].core_profile || "";
+          setCoreProfile(profile);
+          setEditCoreProfile(profile);
+        }
+
         // 2. セキュリティ金庫（APIキー）の登録状態を確認
         await refreshApiKeysStatus();
 
@@ -219,6 +235,27 @@ function App() {
     }
   }
 
+  // コアプロフィールのDB保存処理
+  async function handleSaveProfile() {
+    if (!dbInstance) return;
+    try {
+      setProfileSaveSuccess("");
+      setProfileSaveError("");
+
+      const nowStr = new Date().toISOString();
+      await dbInstance.execute(
+        "UPDATE users SET core_profile = ?, updated_at = ? WHERE id = 1",
+        [editCoreProfile, nowStr]
+      );
+
+      setCoreProfile(editCoreProfile);
+      setProfileSaveSuccess("コアプロフィールをデータベースに安全に保存しました！");
+    } catch (err) {
+      console.error(err);
+      setProfileSaveError(`プロフィール保存失敗: ${String(err)}`);
+    }
+  }
+
   // メンバーが切り替わった時、またはDB初期化完了時にマージプロンプトを生成 (テスト用)
   useEffect(() => {
     if (!dbInstance || loading || initError || currentScreen !== "promptTest") return;
@@ -239,7 +276,7 @@ function App() {
     }
 
     generatePrompt();
-  }, [selectedMemberId, dbInstance, loading, initError, currentScreen]);
+  }, [selectedMemberId, dbInstance, loading, initError, currentScreen, coreProfile]);
 
   if (loading) {
     return (
@@ -263,14 +300,16 @@ function App() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setCurrentScreen("apiKeySetup")}
+            onClick={() => setCurrentScreen("settings")}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-              currentScreen === "apiKeySetup"
+              currentScreen === "settings"
                 ? "bg-[#f59e0b] text-white border-[#d97706]"
                 : "bg-white text-[#3d2b1f] border-[#c8a96e] hover:bg-gray-50"
             }`}
+            disabled={!Object.values(apiKeysStatus).some((v) => v)}
+            title={!Object.values(apiKeysStatus).some((v) => v) ? "APIキーを設定してください" : "設定画面を開く"}
           >
-            🔑 APIキー設定 (S1)
+            ⚙️ 設定 (S9)
           </button>
           <button
             onClick={async () => {
@@ -286,8 +325,9 @@ function App() {
                 ? "bg-[#f59e0b] text-white border-[#d97706]"
                 : "bg-white text-[#3d2b1f] border-[#c8a96e] hover:bg-gray-50"
             }`}
+            disabled={!Object.values(apiKeysStatus).some((v) => v)}
           >
-            ⚙️ マージ検証テスト (ノードB)
+            📊 マージ検証テスト (ノードB)
           </button>
         </div>
       </div>
@@ -424,6 +464,152 @@ function App() {
               </p>
             )}
           </div>
+        </div>
+      )}
+
+      {/* S9: 設定画面 */}
+      {currentScreen === "settings" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-4">
+          
+          {/* 左ペイン：APIキーの安全な管理（S1の改良・流用） */}
+          <div className="flex flex-col gap-6">
+            <div className="bg-[#f5e6c8] border-2 border-[#c8a96e] p-5 rounded-lg shadow-sm">
+              <h2 className="font-bold text-lg flex items-center gap-1.5">
+                🔑 APIキーの管理 (セキュア金庫)
+              </h2>
+              <p className="text-xs leading-relaxed text-[#5c4636] mt-1">
+                OS標準のセキュア金庫（DPAPI/Keychain）にAPIキーを保管しています。
+              </p>
+            </div>
+
+            {successMsg && (
+              <div className="bg-emerald-50 border-2 border-emerald-300 text-emerald-900 px-4 py-2 rounded-lg text-xs font-semibold shadow-sm flex items-center gap-2">
+                <span>🌱</span> {successMsg}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-4">
+              {(Object.keys(PROVIDERS) as Array<keyof typeof PROVIDERS>).map((key) => {
+                const provider = PROVIDERS[key];
+                const isSaved = apiKeysStatus[provider];
+                const error = saveErrors[provider];
+                const inputVal = inputKeys[provider];
+
+                let title = "";
+                let placeholder = "";
+                if (provider === PROVIDERS.OPENAI) {
+                  title = "OpenAI API (gpt-4o, etc.)";
+                  placeholder = "sk-proj-...";
+                } else if (provider === PROVIDERS.ANTHROPIC) {
+                  title = "Anthropic Claude API (claude-3-5-sonnet, etc.)";
+                  placeholder = "sk-ant-api03-...";
+                } else if (provider === PROVIDERS.GEMINI) {
+                  title = "Google Gemini API (gemini-1.5-pro, etc.)";
+                  placeholder = "AIzaSy...";
+                }
+
+                return (
+                  <div key={provider} className="bg-white border-2 border-[#c8a96e] rounded-lg shadow-sm overflow-hidden flex flex-col text-xs">
+                    <div className="bg-[#f5e6c8] px-3 py-2 border-b-2 border-[#c8a96e] flex justify-between items-center">
+                      <span className="font-bold">{title}</span>
+                      {isSaved ? (
+                        <span className="bg-emerald-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                          保管中
+                        </span>
+                      ) : (
+                        <span className="bg-gray-400 text-white text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                          未設定
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      {isSaved ? (
+                        <div className="flex justify-between items-center bg-gray-50 border border-gray-100 p-2 rounded">
+                          <span className="text-gray-400 font-mono text-[10px]">Saved (••••••••••••)</span>
+                          <button
+                            onClick={() => handleDeleteKey(provider)}
+                            className="px-2 py-1 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 rounded text-[10px] font-bold"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex gap-1.5">
+                            <input
+                              type="password"
+                              placeholder={placeholder}
+                              value={inputVal}
+                              onChange={(e) => setInputKeys((prev) => ({ ...prev, [provider]: e.target.value }))}
+                              className="flex-1 px-2.5 py-1.5 border-2 border-[#c8a96e] rounded focus:outline-none focus:border-[#f59e0b] font-mono text-xs bg-[#fdf6e3]"
+                            />
+                            <button
+                              onClick={() => handleSaveKey(provider)}
+                              className="px-3 py-1.5 bg-[#f59e0b] text-white rounded font-bold hover:bg-[#d97706] text-xs"
+                            >
+                              保存
+                            </button>
+                          </div>
+                          {error && <p className="text-[10px] text-red-600 font-semibold">{error}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 右ペイン：ユーザーコアプロフィール編集（S9の独自機能） */}
+          <div className="flex flex-col gap-6">
+            <div className="bg-[#f5e6c8] border-2 border-[#c8a96e] p-5 rounded-lg shadow-sm flex flex-col gap-2">
+              <h2 className="font-bold text-lg flex items-center gap-1.5">
+                👤 ユーザー・コアプロフィール (第1層)
+              </h2>
+              <p className="text-xs leading-relaxed text-[#5c4636]">
+                全AI社員のシステムプロンプトの最上層（ベース）にマージされる、あなたの価値観、目標、現在の状況などの定義です。
+              </p>
+            </div>
+
+            {profileSaveSuccess && (
+              <div className="bg-emerald-50 border-2 border-emerald-300 text-emerald-900 px-4 py-2 rounded-lg text-xs font-semibold shadow-sm flex items-center gap-2">
+                <span>🌱</span> {profileSaveSuccess}
+              </div>
+            )}
+            {profileSaveError && (
+              <div className="bg-red-50 border-2 border-red-300 text-red-900 px-4 py-2 rounded-lg text-xs font-semibold shadow-sm flex items-center gap-2">
+                <span>⚠️</span> {profileSaveError}
+              </div>
+            )}
+
+            <div className="bg-white border-2 border-[#c8a96e] p-4 rounded-lg shadow-sm flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-[#5c4636]">
+                  AI社員が考慮すべきユーザープロフィール（自由記述）:
+                </label>
+                <textarea
+                  value={editCoreProfile}
+                  onChange={(e) => setEditCoreProfile(e.target.value)}
+                  rows={10}
+                  className="w-full p-3 border-2 border-[#c8a96e] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-xs leading-relaxed bg-[#fdf6e3] text-[#3d2b1f] resize-y"
+                  placeholder="【ユーザー像】〜&#10;【コアバリュー】〜"
+                />
+              </div>
+
+              <div className="flex justify-between items-center border-t border-gray-100 pt-3">
+                <span className="text-[10px] text-gray-400 italic">
+                  ※マージ結果に自動的に反映されます。
+                </span>
+                <button
+                  onClick={handleSaveProfile}
+                  className="px-6 py-2 bg-[#f59e0b] hover:bg-[#d97706] text-white rounded-lg font-bold text-xs transition-all border border-[#d97706] shadow-sm"
+                >
+                  💾 プロフィールを保存
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
 

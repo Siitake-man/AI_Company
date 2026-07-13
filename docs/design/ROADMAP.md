@@ -34,7 +34,7 @@ flowchart TD
     style A fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style B fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style C1 fill:#86efac,stroke:#c8a96e  %% 完了カラー（セージグリーン）に変更
-    style C9 fill:#fdf6e3,stroke:#c8a96e
+    style C9 fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style D2 fill:#fdf6e3,stroke:#c8a96e
     style D3 fill:#fdf6e3,stroke:#c8a96e
     style D4 fill:#fca5a5,stroke:#c8a96e
@@ -57,7 +57,7 @@ flowchart TD
 | A | DBスキーマ実装 | ✅ 2026-07-13完了（全11テーブル自動生成確認済） |
 | B | 4層マージロジック | ✅ 2026-07-13完了（テスト画面にて論理マージの正常動作実証済） |
 | C1 | S1 初回起動・APIキー設定 | ✅ 2026-07-13完了（OSセキュアストレージによるキー保存とUI確認済） |
-| C9 | S9 設定画面 | APIキー管理＋コアプロフィール入力欄が機能する |
+| C9 | S9 設定画面 | ✅ 2026-07-13完了（APIキー管理＋コアプロフィール編集機能の実装完了） |
 | D2 | S2 プロジェクト一覧 | 複数プロジェクトの作成・一覧表示ができる |
 | D3 | S3 プロジェクト作成 | プロジェクト名・目的・価値観の登録と初期部署・メンバーの初期化ができる |
 | D4 | S4 チーム管理 | プロジェクト内の部署タブ切り替えとメンバー一覧・人格継承バッジが見える |
@@ -87,3 +87,4 @@ flowchart TD
 | 2026-07-13 | Antigravity | ノードA（DBスキーマ実装）の完了に伴いステータスを更新。 |
 | 2026-07-13 | Antigravity | ノードB（4層マージロジック）の完了に伴いステータスを更新。 |
 | 2026-07-13 | Antigravity | ノードC1（S1: 初回起動・APIキー設定）の完了に伴いステータスを更新。 |
+| 2026-07-13 | Antigravity | ノードC9（S9: 設定画面）の完了に伴いステータスを更新。 |
