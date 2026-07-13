@@ -34,7 +34,7 @@ CREATE TABLE projects (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,          -- 例: "NPO-Trust"
     purpose TEXT,                -- プロジェクトの目的
-    values TEXT,                 -- 判断軸・価値観（全部署・全メンバーに継承）
+    "values" TEXT,               -- 判断軸・価値観（※SQLite予約語衝突回避のため二重引用符必須）
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -220,3 +220,11 @@ CREATE TABLE app_settings (
 - RAG用のベクトルDBは本SQLiteとは別技術のため、ここでは設計しない。Phase 2でChroma/LanceDB/Qdrant等を選定し、SQLite側には「どの知識ベースがどのプロジェクトに紐づくか」程度の参照カラムのみ追加する想定。
 - 知識ベースはプロジェクト単位で共有し、部署・役割ごとに"同じ倉庫を違うレンズで読む"設計とする（RAG検索クエリに役割コンテキストを含める）。
 - 価値観蓄積・学習ログ（ユーザーが決断理由を聞かれて学習する機能）も未設計。マーケティング系（陳腐化しにくい）とセキュリティ系（鮮度重視）でログの持ち方を分ける方針だけメモしておく。
+
+---
+
+## 7. 更新履歴
+
+| 日付 | 変更者 | 内容 |
+|---|---|---|
+| 2026-07-13 | Antigravity | projectsテーブルの values カラムについて、SQLiteの予約語衝突エラーを回避するため二重引用符（"values"）を使用する旨を追記。 |
