@@ -16,8 +16,9 @@ Version 1.0
 
 1. `DESIGN_SPEC.md` — コンセプト、コアプリンシプル、データ構造、画面設計、機能仕様
 2. `DATA_SCHEMA.md` — SQLiteテーブル設計
-3. `AI_RULES.md` — 実装時の行動規範
-4. `ROADMAP.md` — 依存関係ベースの実装順序
+3. `DESIGN_SYSTEM.md` — **UIデザインの唯一の正（SSoT）**。カラーコード・フォント・CSSコンポーネント定義。UI実装前に必ず読むこと。
+4. `AI_RULES.md` — 実装時の行動規範
+5. `ROADMAP.md` — 依存関係ベースの実装順序
 
 ### 必ず理解すべき4点
 
