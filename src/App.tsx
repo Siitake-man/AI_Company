@@ -69,7 +69,20 @@ function App() {
   const [generateError, setGenerateError] = useState<string>("");
 
   // 画面遷移・APIキー関連の状態
-  const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings" | "createProject">("apiKeySetup");
+  const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat">("apiKeySetup");
+  const [chatMemberId, setChatMemberId] = useState<number | null>(null);
+  const [chatMessages, setChatMessages] = useState<{id: number, member_id: number, role: "user" | "assistant", content: string, created_at: string}[]>([]);
+  const [chatInput, setChatInput] = useState("");
+
+  // DB Sync Effect for Chat
+  useEffect(() => {
+    if (currentScreen === "chat" && chatMemberId && dbInstance) {
+      dbInstance.select<{id: number, member_id: number, role: "user" | "assistant", content: string, created_at: string}[]>(
+        'SELECT * FROM chat_messages WHERE member_id = $1 ORDER BY created_at ASC',
+        [chatMemberId]
+      ).then((msgs) => setChatMessages(msgs)).catch(console.error);
+    }
+  }, [currentScreen, chatMemberId, dbInstance]);
 
   // 新規プロジェクト作成用の状態
   const [newProjectName, setNewProjectName] = useState<string>("");
@@ -397,7 +410,7 @@ function App() {
       
       // プロジェクト一覧を更新し、作成したプロジェクトを選択状態にする
       await fetchProjects();
-      setSelectedProjectId(projectId);
+      setSelectedProjectId(projectId as number);
       setCurrentScreen("home");
     } catch (e) {
       console.error("Failed to create project", e);
@@ -494,9 +507,9 @@ function App() {
   }
 
   return (
-    <main className="p-8 bg-[var(--color-bg)] min-h-screen text-[var(--color-text)] flex flex-col gap-6">
+    <main className="bg-[var(--color-bg)] h-screen overflow-hidden text-[var(--color-text)] flex flex-col" style={{ border: "6px solid var(--color-border-outer)", borderRadius: "8px", boxShadow: "inset 0 0 20px rgba(139,90,43,0.2)" }}><div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
       {/* 共通ヘッダー */}
-      <div className="border-b-4 border-[var(--color-border-inner)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm">
+      <div className="border-b-[4px] border-[var(--color-border-outer)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm">
         <div
           onClick={() => {
             if (Object.values(apiKeysStatus).some((v) => v)) {
@@ -506,12 +519,7 @@ function App() {
           className={`cursor-pointer ${Object.values(apiKeysStatus).some((v) => v) ? "hover:opacity-80 transition-opacity" : ""}`}
           title={Object.values(apiKeysStatus).some((v) => v) ? "ホーム画面に戻る" : ""}
         >
-          <h1 className="text-2xl font-black tracking-wider flex items-center gap-2">
-            🪵 AIカンパニー <span className="text-xs bg-[var(--color-accent)] text-white px-2 py-1 rounded font-normal">Phase 1</span>
-          </h1>
-          <p className="text-xs mt-1 text-[var(--color-text-sub)] font-medium">
-            あなただけの専門家チームを持つ、ローカル完結型デスクトップアプリ
-          </p>
+          <h1 className="font-title text-4xl text-[var(--color-border-outer)] flex items-center gap-2">🪵 AIカンパニー</h1><span className="ml-4 text-sm text-[var(--color-text-sub)] font-sans">Build the perfect AI team for your mission. 🌸</span>
         </div>
         <div className="flex gap-2">
           {Object.values(apiKeysStatus).some((v) => v) && currentScreen !== "home" && (
@@ -522,18 +530,7 @@ function App() {
               🏠 ホーム
             </button>
           )}
-          <button
-            onClick={() => setCurrentScreen("settings")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-              currentScreen === "settings"
-                ? "bg-[var(--color-accent)] text-white border-[var(--color-accent-shadow)]"
-                : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
-            }`}
-            disabled={!Object.values(apiKeysStatus).some((v) => v)}
-            title={!Object.values(apiKeysStatus).some((v) => v) ? "APIキーを設定してください" : "設定画面を開く"}
-          >
-            ⚙️ 設定 (S9)
-          </button>
+          <button onClick={() => setCurrentScreen("settings")} className="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" disabled={!Object.values(apiKeysStatus).some((v) => v)} title={!Object.values(apiKeysStatus).some((v) => v) ? "APIキーを設定してください" : "設定画面を開く"}>⚙ 設定</button>
           <button
             onClick={async () => {
               const hasAny = await hasAnyApiKey();
@@ -569,7 +566,7 @@ function App() {
           {/* 左サイドバー */}
           <div className="w-64 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
             <div className="panel-paper p-3 text-center mb-2">
-              <h2 className="font-title text-xl font-bold">プロジェクト一覧</h2>
+              <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
             </div>
 
             <div className="flex-1 flex flex-col gap-2">
@@ -628,23 +625,11 @@ function App() {
                             {project?.purpose}
                           </p>
                         </div>
+                        <button className="btn-secondary" onClick={() => setCurrentScreen("teamManage")}>👥 チームを管理する</button>
                       </div>
 
                       {/* 統計情報 */}
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="panel-paper p-4 flex flex-col items-center justify-center">
-                          <span className="text-[var(--color-text-sub)] text-xs font-bold mb-1">メンバー数</span>
-                          <span className="text-2xl font-bold">{projectMembers.length}名</span>
-                        </div>
-                        <div className="panel-paper p-4 flex flex-col items-center justify-center">
-                          <span className="text-[var(--color-text-sub)] text-xs font-bold mb-1">最終会議日</span>
-                          <span className="text-xl font-bold">--</span>
-                        </div>
-                        <div className="panel-paper p-4 flex flex-col items-center justify-center">
-                          <span className="text-[var(--color-text-sub)] text-xs font-bold mb-1">会議回数</span>
-                          <span className="text-2xl font-bold">0回</span>
-                        </div>
-                      </div>
+                      <div className="flex gap-4"><div className="panel-paper px-5 py-3 flex items-center gap-3 border-2 border-[var(--color-border-inner)] bg-[var(--color-bg)]"><span>👥 {projectMembers.length} メンバー</span></div><div className="panel-paper px-5 py-3 flex items-center gap-3 border-2 border-[var(--color-border-inner)] bg-[var(--color-bg)]"><span>📅 最終会議: --</span></div><div className="panel-paper px-5 py-3 flex items-center gap-3 border-2 border-[var(--color-border-inner)] bg-[var(--color-bg)]"><span>🎙️ 会議回数: 0回</span></div></div>
 
                       {/* メンバーグリッド（部署グループごと） */}
                       <div className="mt-4">
@@ -677,7 +662,7 @@ function App() {
                                 <div
                                   key={member.id}
                                   className="panel-paper flex flex-col items-center p-4 text-center relative overflow-hidden shadow transition-all hover:-translate-y-1 hover:shadow-md max-w-[220px] w-full mx-auto"
-                                  style={{ backgroundColor: getRoleColor(member.role, member.dept_name) }}
+                                  style={{ backgroundColor: getRoleColor(member.role, member.dept_name), boxShadow: "2px 4px 0px var(--color-border-inner)" }}
                                 >
                                   {/* アバター画像枠 */}
                                   <div 
@@ -742,9 +727,181 @@ function App() {
             ) : (
               <div className="panel-paper p-10 flex flex-col items-center justify-center h-full gap-4 text-[var(--color-text-sub)]">
                 <span className="text-4xl">🌱</span>
-                <p className="font-bold">左のリストからプロジェクトを選択してください</p>
+                <div className="flex flex-col items-center justify-center h-full"><div className="text-6xl mb-4">🏡</div><p className="font-title text-3xl text-center leading-relaxed">あなたのミッションのために、<br/>最高のAIチームをつくりましょう。🌸</p></div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+
+      {/* S4: チーム管理画面 */}
+      {currentScreen === "teamManage" && projects.find(p => p.id === selectedProjectId) && (
+        <div className="flex-1 flex gap-6 h-[calc(100vh-140px)]">
+          {/* 左サイドバー */}
+          <div className="w-64 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+            <div className="panel-paper p-3 text-center mb-2">
+              <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
+            </div>
+            <div className="flex-1 flex flex-col gap-2">
+              {projects.map((proj) => (
+                <div
+                  key={proj.id}
+                  onClick={() => setSelectedProjectId(proj.id)}
+                  className={selectedProjectId === proj.id ? "sidebar-item-active" : "sidebar-item"}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🌱</span>
+                    <span className="truncate">{proj.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                setCreateProjectError("");
+                setCurrentScreen("createProject");
+              }}
+              className="btn-secondary w-full justify-center mt-auto py-3"
+            >
+              ＋ 新しいプロジェクト
+            </button>
+          </div>
+
+          {/* 右メインエリア */}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            {/* メインエリアヘッダー */}
+            <div className="panel-paper p-4 flex justify-between items-center mb-4">
+              <h2 className="font-bold text-xl">{projects.find(p => p.id === selectedProjectId)?.name} チーム ✏️</h2>
+              <button className="btn-secondary" onClick={() => setCurrentScreen("home")}>← プロジェクトに戻る</button>
+            </div>
+
+            {/* メンバーリスト（縦型） */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px' }}>
+              {projectMembers.map((member) => (
+                <div key={member.id} className="panel-paper flex items-center p-3 gap-4 shadow-sm" style={{ backgroundColor: 'var(--color-bg)' }}>
+                  {/* アバター画像枠 */}
+                  <div className="bg-white/60 rounded flex items-center justify-center border-2 border-[var(--color-border-inner)] avatar-pixel shadow-inner shrink-0" style={{ width: '60px', height: '60px' }}>
+                    {getAvatarPath(member.avatar_id) ? (
+                      <img src={getAvatarPath(member.avatar_id)} alt={member.name} className="w-full h-full object-cover select-none" onError={(e) => { (e.target as HTMLElement).style.display = "none"; }} />
+                    ) : (
+                      <span className="text-2xl">{getEmojiForRole(member.dept_name, member.role)}</span>
+                    )}
+                  </div>
+
+                  {/* 情報エリア */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-bold text-[var(--color-text)] truncate">{member.name}</h4>
+                      <span className="text-[10px] text-[var(--color-text-sub)] border border-[var(--color-border-inner)] px-2 py-0.5 rounded font-bold shadow-sm whitespace-nowrap" style={{ backgroundColor: getRoleColor(member.role, member.dept_name) }}>
+                        {member.role}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--color-text-sub)] truncate">
+                      {member.personality_prompt.substring(0, 50)}...
+                    </p>
+                  </div>
+
+                  {/* アクションボタン */}
+                  <div className="flex items-center gap-2">
+                    <button className="btn-secondary text-green-700 py-1.5" onClick={() => { setChatMemberId(member.id); setCurrentScreen("chat"); }}>💬 話す</button>
+                    <button className="btn-secondary text-purple-700 py-1.5" onClick={() => alert("S5: メンバーエディタは今後実装予定")}>✏️ 編集</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* フッター */}
+            <div className="mt-4 pt-4 border-t-2 border-[var(--color-border-inner)] flex justify-between items-center gap-4">
+              <button className="btn-secondary border-dashed w-1/3 justify-center py-3 text-sm">＋ メンバーを追加</button>
+              <button className="btn-primary flex-1 justify-center py-3 text-lg" onClick={() => setCurrentScreen("promptTest")}>🎙️ 会議を開始する</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* S6: 1on1チャット画面 */}
+      {currentScreen === "chat" && chatMemberId && (
+        <div className="flex-1 flex gap-6 h-[calc(100vh-140px)]">
+          {/* 左サイドバー */}
+          <div className="w-64 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+            <div className="panel-paper p-3 text-center mb-2">
+              <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
+            </div>
+            <div className="flex-1 flex flex-col gap-2">
+              {projects.map((proj) => (
+                <div key={proj.id} onClick={() => setSelectedProjectId(proj.id)} className={selectedProjectId === proj.id ? "sidebar-item-active" : "sidebar-item"}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🌱</span><span className="truncate">{proj.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 右メインエリア */}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            {/* メインエリアヘッダー */}
+            <div className="panel-paper p-4 flex justify-between items-center mb-4">
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const m = projectMembers.find(m => m.id === chatMemberId);
+                  return m ? (
+                    <>
+                      <div className="bg-white/60 rounded flex items-center justify-center border border-[var(--color-border-inner)] avatar-pixel shadow-inner shrink-0" style={{ width: '40px', height: '40px' }}>
+                        {getAvatarPath(m.avatar_id) ? <img src={getAvatarPath(m.avatar_id)} alt={m.name} className="w-full h-full object-cover" /> : <span>{getEmojiForRole(m.dept_name, m.role)}</span>}
+                      </div>
+                      <h2 className="font-bold text-lg">{m.name}</h2>
+                      <span className="text-[10px] text-[var(--color-text-sub)] border border-[var(--color-border-inner)] px-2 py-0.5 rounded font-bold shadow-sm" style={{ backgroundColor: getRoleColor(m.role, m.dept_name) }}>{m.role}</span>
+                    </>
+                  ) : null;
+                })()}
+              </div>
+              <button className="btn-secondary" onClick={() => setCurrentScreen("teamManage")}>← チームに戻る</button>
+            </div>
+
+            {/* チャットエリア */}
+            <div className="flex-1 overflow-y-auto panel-paper mb-4 p-4 flex flex-col gap-4 bg-[var(--color-bg)]">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {msg.role === 'assistant' && (
+                    <div className="bg-white/60 rounded flex items-center justify-center border border-[var(--color-border-inner)] avatar-pixel shadow-inner shrink-0 mr-2" style={{ width: '30px', height: '30px' }}>
+                       {(() => {
+                          const m = projectMembers.find(m => m.id === chatMemberId);
+                          return m && getAvatarPath(m.avatar_id) ? <img src={getAvatarPath(m.avatar_id)} alt="AI" className="w-full h-full object-cover" /> : <span>🤖</span>;
+                       })()}
+                    </div>
+                  )}
+                  <div className={`px-4 py-2 rounded-2xl max-w-[70%] text-sm ${msg.role === 'user' ? 'bg-[var(--color-bg)] border-2 border-[var(--color-border-inner)] text-[var(--color-text)] rounded-br-sm' : 'bg-white border-2 border-[var(--color-border-inner)] text-[var(--color-text)] rounded-bl-sm shadow-sm'}`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 入力フォームフッター */}
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if(!chatInput.trim() || !dbInstance || !chatMemberId) return;
+              const msgText = chatInput;
+              setChatInput("");
+              try {
+                await dbInstance.execute(
+                  'INSERT INTO chat_messages (member_id, role, content, created_at) VALUES ($1, $2, $3, $4)',
+                  [chatMemberId, 'user', msgText, new Date().toISOString()]
+                );
+                const msgs = await dbInstance.select<{id: number, member_id: number, role: "user" | "assistant", content: string, created_at: string}[]>('SELECT * FROM chat_messages WHERE member_id = $1 ORDER BY created_at ASC', [chatMemberId]);
+                setChatMessages(msgs);
+
+                setTimeout(() => {
+                  setChatMessages(prev => [...prev, { id: Date.now(), member_id: chatMemberId, role: 'assistant', content: '（AIの返答機能は今後のセッションで実装予定です）', created_at: new Date().toISOString() }]);
+                }, 1000);
+              } catch(err) { console.error(err); }
+            }} className="flex gap-2">
+              <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} className="input-wood flex-1" placeholder="メッセージを入力..." />
+              <button type="submit" className="btn-primary" disabled={!chatInput.trim()}>📨 送信</button>
+            </form>
           </div>
         </div>
       )}
@@ -1218,6 +1375,7 @@ function App() {
           </div>
         </div>
       )}
+    </div>
     </main>
   );
 }

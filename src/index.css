@@ -109,7 +109,8 @@ h1, h2, .font-title {
 .panel-paper {
   background-color: var(--color-panel);
   border: 2px solid var(--color-border-inner);
-  border-radius: 8px;
+  border-radius: 10px;
+  box-shadow: 0px 3px 0px var(--color-border-inner), inset 0 1px 0 rgba(255,255,255,0.4);
 }
 
 /* === 木目調サイドバー === */
@@ -129,25 +130,31 @@ h1, h2, .font-title {
 .sidebar-item-active {
   background-color: var(--color-accent);
   color: var(--color-text);
-  border: 2px solid var(--color-border-outer);
-  border-radius: 8px;
+  border: 3px solid var(--color-border-outer);
+  border-radius: 12px;
   font-weight: 700;
-  box-shadow: 0px 3px 0px var(--color-accent-shadow);
-  padding: 0.5rem 1rem;
+  box-shadow: 0px 4px 0px var(--color-accent-shadow);
+  padding: 0.6rem 1rem;
 }
 
 /* === 非アクティブなサイドバー項目 === */
 .sidebar-item {
   background-color: var(--color-panel);
-  border: 2px solid var(--color-border-inner);
-  border-radius: 8px;
+  border: 3px solid var(--color-border-inner);
+  border-radius: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.1s;
-  padding: 0.5rem 1rem;
+  transition: background-color 0.1s, transform 0.05s;
+  padding: 0.6rem 1rem;
+  box-shadow: 0px 4px 0px var(--color-border-inner);
 }
 .sidebar-item:hover {
   background-color: #EDD9B0;
+  transform: translateY(-1px);
+}
+.sidebar-item:active {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 
 /* === ドット絵アバター === */
