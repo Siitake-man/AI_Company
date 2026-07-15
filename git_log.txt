@@ -1,0 +1,27 @@
+commit 509ef29665db186dbb8f0287ae12b2126aea0d67
+Merge: fe97254 d487985
+Author: siitake-man <bonobono.a50@gmail.com>
+Date:   Wed Jul 15 22:12:40 2026 +0900
+
+    Merge pull request #3 from Siitake-man/jules/fix-scroll-layout-and-chat-5417458963398078340
+    
+    fix: scroll layout issue and implement llm chat call
+
+commit d48798540d45664a24c8e316ef0cdb50a4546276
+Author: Siitake-man <221588401+Siitake-man@users.noreply.github.com>
+Date:   Wed Jul 15 13:11:54 2026 +0000
+
+    fix: scroll layout issue and implement llm chat call
+    
+    Co-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>
+
+commit 6fdbec1e5d19b0c11f2b74521729df553c7dd191
+Author: Siitake-man <221588401+Siitake-man@users.noreply.github.com>
+Date:   Wed Jul 15 13:05:10 2026 +0000
+
+    fix: scroll layout issue and implement llm chat call
+    
+    Co-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>
+
+ src/App.tsx | 193 ++++++++++++++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 163 insertions(+), 30 deletions(-)

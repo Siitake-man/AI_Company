@@ -225,9 +225,6 @@ function App() {
   const [editMemberRole, setEditMemberRole] = useState<string>("");
   const [editMemberPersonality, setEditMemberPersonality] = useState<string>("");
   const [editMemberModel, setEditMemberModel] = useState<string>("");
-  const [memberLearnings, setMemberLearnings] = useState<any[]>([]); // S5: 成長日誌（学習履歴）
-  const [showInheritedProject, setShowInheritedProject] = useState<boolean>(false);
-  const [showInheritedDept, setShowInheritedDept] = useState<boolean>(false);
 
   // APIキーからリアルタイムに利用可能モデルを取得してデータベースを同期する
   const syncAllAvailableModels = async (db: Database) => {
@@ -378,18 +375,6 @@ function App() {
             model_id TEXT NOT NULL UNIQUE,
             display_name TEXT NOT NULL,
             created_at TEXT NOT NULL
-          );
-        `);
-
-        // member_learnings テーブルの作成 (成長日誌)
-        await db.execute(`
-          CREATE TABLE IF NOT EXISTS member_learnings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            member_id INTEGER NOT NULL,
-            meeting_id INTEGER,
-            content TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
           );
         `);
 
@@ -567,10 +552,11 @@ function App() {
       [PROVIDERS.BRAVE]: !!braveKey,
     });
 
-    // 初期起動時は apiKeySetup を表示しても良いが、今回は強制スキップしてホームにする
-    // ユーザーからの報告「ホーム画面が消えた」に対応するため、ホームをデフォルトにする
-    if (currentScreen === "apiKeySetup") {
-      setCurrentScreen(hasAny ? "home" : "home"); 
+    // キーが1つ以上登録されていれば、初期起動時の強制セットアップをスキップ可能にする
+    if (hasAny) {
+      setCurrentScreen("home");
+    } else {
+      setCurrentScreen("apiKeySetup");
     }
   }
 
@@ -599,8 +585,8 @@ function App() {
   const fetchMembers = async () => {
     if (!dbInstance || selectedProjectId === null) return;
     try {
-      const result = await dbInstance.select<{id: number, name: string, role: string, avatar_id: string, dept_name: string, personality_prompt: string, ai_model: string, department_prompt: string}[]>(
-        `SELECT m.id, m.name, m.role, m.avatar_id, m.personality_prompt, m.ai_model, d.name as dept_name, d.department_prompt
+      const result = await dbInstance.select<{id: number, name: string, role: string, avatar_id: string, dept_name: string, personality_prompt: string}[]>(
+        `SELECT m.id, m.name, m.role, m.avatar_id, m.personality_prompt, d.name as dept_name
          FROM members m
          JOIN departments d ON m.department_id = d.id
          WHERE d.project_id = ?
@@ -803,14 +789,18 @@ function App() {
       {/* 共通ヘッダー */}
       <div className="border-b-[4px] border-[var(--color-border-outer)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm shrink-0">
         <div
-          onClick={() => setCurrentScreen("home")}
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-          title="ホーム画面に戻る"
+          onClick={() => {
+            if (Object.values(apiKeysStatus).some((v) => v)) {
+              setCurrentScreen("home");
+            }
+          }}
+          className={`cursor-pointer ${Object.values(apiKeysStatus).some((v) => v) ? "hover:opacity-80 transition-opacity" : ""}`}
+          title={Object.values(apiKeysStatus).some((v) => v) ? "ホーム画面に戻る" : ""}
         >
           <h1 className="font-title text-4xl text-[var(--color-border-outer)] flex items-center gap-2">🪵 AIカンパニー</h1><span className="ml-4 text-sm text-[var(--color-text-sub)] font-sans">Build the perfect AI team for your mission. 🌸</span>
         </div>
         <div className="flex gap-2">
-          {currentScreen !== "home" && (
+          {Object.values(apiKeysStatus).some((v) => v) && currentScreen !== "home" && (
             <button
               onClick={() => setCurrentScreen("home")}
               className="px-3 py-1.5 rounded-lg text-xs font-bold border bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50 btn-secondary"
@@ -818,7 +808,7 @@ function App() {
               🏠 ホーム
             </button>
           )}
-          <button onClick={() => setCurrentScreen("settings")} className="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" title="設定画面を開く">⚙ 設定</button>
+          <button onClick={() => setCurrentScreen("settings")} className="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" disabled={!Object.values(apiKeysStatus).some((v) => v)} title={!Object.values(apiKeysStatus).some((v) => v) ? "APIキーを設定してください" : "設定画面を開く"}>⚙ 設定</button>
           <button
             onClick={async () => {
               const hasAny = await hasAnyApiKey();
@@ -1129,25 +1119,12 @@ function App() {
                     <button className="btn-secondary text-green-700 py-1.5" onClick={() => { setChatMemberId(member.id); setCurrentScreen("chat"); }}>💬 話す</button>
                     <button 
                       className="btn-secondary text-purple-700 py-1.5" 
-                      onClick={async () => {
+                      onClick={() => {
                         setEditingMember(member);
                         setEditMemberName(member.name);
                         setEditMemberRole(member.role || "");
                         setEditMemberPersonality(member.personality_prompt || "");
                         setEditMemberModel(member.ai_model || "");
-                        
-                        // 成長日誌（学習履歴）のロード
-                        if (dbInstance) {
-                          try {
-                            const res = await dbInstance.select<any[]>(
-                              "SELECT * FROM member_learnings WHERE member_id = ? ORDER BY created_at DESC", 
-                              [member.id]
-                            );
-                            setMemberLearnings(res);
-                          } catch (e) {
-                            console.error("Failed to load learnings", e);
-                          }
-                        }
                       }}
                     >
                       ✏️ 編集
@@ -1542,12 +1519,18 @@ function App() {
 
           {/* 次へ進むアクション */}
           <div className="mt-4 flex justify-center">
+            {Object.values(apiKeysStatus).some((v) => v) ? (
               <button
                 onClick={() => setCurrentScreen("home")}
-                className="btn-primary py-3 px-8 text-lg tracking-wider transition-all text-sm"
+                className="btn-primary py-3 px-8 text-lg tracking-wider transition-all animate-bounce text-sm"
               >
                 ✨ APIキー設定完了！ホームへ進む
               </button>
+            ) : (
+              <p className="text-xs text-[var(--color-text-sub)] italic panel-paper px-4 py-2">
+                ※アプリを動かすには、最低1つ以上のAPIキーを金庫に保存してください。
+              </p>
+            )}
           </div>
         </div>
         </div>
@@ -2107,44 +2090,6 @@ function App() {
 
             {/* スクロール領域 */}
             <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
-              
-              {/* 継承元パネル (S5要件) */}
-              <div className="flex flex-col gap-2 mb-2">
-                <div className="text-[10px] font-bold text-[var(--color-text-sub)] uppercase tracking-wider">🔗 プロンプト継承元</div>
-                
-                {/* プロジェクト継承 */}
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border-inner)] rounded overflow-hidden">
-                  <button 
-                    onClick={() => setShowInheritedProject(!showInheritedProject)}
-                    className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-[var(--color-bg)] transition-colors flex justify-between items-center"
-                  >
-                    <span>🌱 プロジェクト価値観: {projects.find(p => p.id === selectedProjectId)?.name || ""}</span>
-                    <span>{showInheritedProject ? "▼" : "▶"}</span>
-                  </button>
-                  {showInheritedProject && (
-                    <div className="px-3 pb-3 text-xs text-[var(--color-text-sub)] whitespace-pre-wrap border-t border-[var(--color-border-inner)] pt-2">
-                      {projects.find(p => p.id === selectedProjectId)?.values || "未設定"}
-                    </div>
-                  )}
-                </div>
-
-                {/* 部署継承 */}
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border-inner)] rounded overflow-hidden">
-                  <button 
-                    onClick={() => setShowInheritedDept(!showInheritedDept)}
-                    className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-[var(--color-bg)] transition-colors flex justify-between items-center"
-                  >
-                    <span>📁 部署方針: {editingMember?.dept_name}</span>
-                    <span>{showInheritedDept ? "▼" : "▶"}</span>
-                  </button>
-                  {showInheritedDept && (
-                    <div className="px-3 pb-3 text-xs text-[var(--color-text-sub)] whitespace-pre-wrap border-t border-[var(--color-border-inner)] pt-2">
-                      {editingMember?.department_prompt || "未設定"}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-[var(--color-text-sub)]">名前</label>
                 <input 
@@ -2198,37 +2143,6 @@ function App() {
                   className="w-full p-3 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-xs leading-relaxed bg-white text-[var(--color-text)] resize-y"
                   placeholder="冷静沈着で丁寧な敬語。曖昧な表現に対して極めて敏感..."
                 />
-              </div>
-              <div className="flex flex-col gap-1.5 mt-4">
-                <label className="text-xs font-bold text-[var(--color-text-sub)] flex items-center gap-1">
-                  <span>🌱</span> 成長日誌（会議からの自動学習・ルール）
-                </label>
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border-inner)] rounded-lg p-3 flex flex-col gap-2 min-h-[100px]">
-                  {memberLearnings.length === 0 ? (
-                    <p className="text-xs text-[var(--color-text-sub)] italic text-center py-4">まだ学習記録はありません。</p>
-                  ) : (
-                    memberLearnings.map(log => (
-                      <div key={log.id} className="bg-white p-2 rounded border border-[var(--color-border-inner)] text-xs flex justify-between items-start gap-2 shadow-sm">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[var(--color-text)] whitespace-pre-wrap">{log.content}</p>
-                          <p className="text-[10px] text-gray-400 mt-1">{new Date(log.created_at).toLocaleString()}</p>
-                        </div>
-                        <button 
-                          onClick={async () => {
-                            if (!dbInstance || !confirm("この学習記録を削除してもよろしいですか？")) return;
-                            try {
-                              await dbInstance.execute("DELETE FROM member_learnings WHERE id = ?", [log.id]);
-                              setMemberLearnings(prev => prev.filter(p => p.id !== log.id));
-                            } catch(e) { console.error(e); }
-                          }}
-                          className="text-red-500 hover:text-red-700 font-bold shrink-0 text-xs px-2 py-1 bg-red-50 rounded"
-                        >
-                          削除
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
               </div>
             </div>
 
