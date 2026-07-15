@@ -90,23 +90,29 @@ function App() {
   const [newProjectValues, setNewProjectValues] = useState<string>("");
   const [selectedDepts, setSelectedDepts] = useState<string[]>(["strategy", "engineering", "legal", "marketing", "thinking_style"]);
   const [createProjectError, setCreateProjectError] = useState<string>("");
-  const [apiKeysStatus, setApiKeysStatus] = useState<{
-    openai: boolean;
-    anthropic: boolean;
-    gemini: boolean;
-  }>({ openai: false, anthropic: false, gemini: false });
+  const [apiKeysStatus, setApiKeysStatus] = useState<Record<ProviderType, boolean>>({
+    [PROVIDERS.OPENAI]: false,
+    [PROVIDERS.ANTHROPIC]: false,
+    [PROVIDERS.GEMINI]: false,
+    [PROVIDERS.TAVILY]: false,
+    [PROVIDERS.BRAVE]: false
+  });
 
-  const [inputKeys, setInputKeys] = useState<{
-    openai: string;
-    anthropic: string;
-    gemini: string;
-  }>({ openai: "", anthropic: "", gemini: "" });
+  const [inputKeys, setInputKeys] = useState<Record<ProviderType, string>>({
+    [PROVIDERS.OPENAI]: "",
+    [PROVIDERS.ANTHROPIC]: "",
+    [PROVIDERS.GEMINI]: "",
+    [PROVIDERS.TAVILY]: "",
+    [PROVIDERS.BRAVE]: ""
+  });
 
-  const [saveErrors, setSaveErrors] = useState<{
-    openai: string;
-    anthropic: string;
-    gemini: string;
-  }>({ openai: "", anthropic: "", gemini: "" });
+  const [saveErrors, setSaveErrors] = useState<Record<ProviderType, string>>({
+    [PROVIDERS.OPENAI]: "",
+    [PROVIDERS.ANTHROPIC]: "",
+    [PROVIDERS.GEMINI]: "",
+    [PROVIDERS.TAVILY]: "",
+    [PROVIDERS.BRAVE]: ""
+  });
 
   const [successMsg, setSuccessMsg] = useState<string>("");
 
@@ -295,12 +301,16 @@ function App() {
     const openaiKey = await getApiKey(PROVIDERS.OPENAI);
     const anthropicKey = await getApiKey(PROVIDERS.ANTHROPIC);
     const geminiKey = await getApiKey(PROVIDERS.GEMINI);
+    const tavilyKey = await getApiKey(PROVIDERS.TAVILY);
+    const braveKey = await getApiKey(PROVIDERS.BRAVE);
 
     const hasAny = !!(openaiKey || anthropicKey || geminiKey);
     setApiKeysStatus({
-      openai: !!openaiKey,
-      anthropic: !!anthropicKey,
-      gemini: !!geminiKey,
+      [PROVIDERS.OPENAI]: !!openaiKey,
+      [PROVIDERS.ANTHROPIC]: !!anthropicKey,
+      [PROVIDERS.GEMINI]: !!geminiKey,
+      [PROVIDERS.TAVILY]: !!tavilyKey,
+      [PROVIDERS.BRAVE]: !!braveKey,
     });
 
     // キーが1つ以上登録されていれば、初期起動時の強制セットアップをスキップ可能にする
@@ -531,7 +541,7 @@ function App() {
   return (
     <main className="bg-[var(--color-bg)] overflow-hidden text-[var(--color-text)] flex flex-col p-8 gap-6" style={{ height: '100vh', border: "6px solid var(--color-border-outer)", borderRadius: "8px", boxShadow: "inset 0 0 20px rgba(139,90,43,0.2)", boxSizing: 'border-box' }}>
       {/* 共通ヘッダー */}
-      <div className="border-b-[4px] border-[var(--color-border-outer)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm">
+      <div className="border-b-[4px] border-[var(--color-border-outer)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm shrink-0">
         <div
           onClick={() => {
             if (Object.values(apiKeysStatus).some((v) => v)) {
@@ -586,7 +596,7 @@ function App() {
       {currentScreen === "home" && (
         <div className="flex-1 flex gap-6 min-h-0">
           {/* 左サイドバー */}
-          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-hidden">
             <div className="panel-paper p-3 text-center mb-2">
               <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
             </div>
@@ -784,7 +794,7 @@ function App() {
       {currentScreen === "teamManage" && projects.find(p => p.id === selectedProjectId) && (
         <div className="flex-1 flex gap-6 min-h-0">
           {/* 左サイドバー */}
-          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-hidden">
             <div className="panel-paper p-3 text-center mb-2">
               <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
             </div>
@@ -816,7 +826,7 @@ function App() {
           {/* 右メインエリア */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             {/* メインエリアヘッダー */}
-            <div className="panel-paper p-4 flex justify-between items-center mb-4">
+            <div className="panel-paper p-4 flex justify-between items-center mb-4 shrink-0">
               <h2 className="font-bold text-xl">{projects.find(p => p.id === selectedProjectId)?.name} チーム ✏️</h2>
               <button className="btn-secondary" onClick={() => setCurrentScreen("home")}>← プロジェクトに戻る</button>
             </div>
@@ -870,7 +880,7 @@ function App() {
       {currentScreen === "chat" && chatMemberId && (
         <div className="flex-1 flex gap-6 min-h-0">
           {/* 左サイドバー */}
-          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-hidden">
             <div className="panel-paper p-3 text-center mb-2">
               <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
             </div>
@@ -888,7 +898,7 @@ function App() {
           {/* 右メインエリア */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             {/* メインエリアヘッダー */}
-            <div className="panel-paper p-4 flex justify-between items-center mb-4">
+            <div className="panel-paper p-4 flex justify-between items-center mb-4 shrink-0">
               <div className="flex items-center gap-3">
                 {(() => {
                   const m = projectMembers.find(m => m.id === chatMemberId);
@@ -932,6 +942,7 @@ function App() {
               const msgText = chatInput;
               setChatInput("");
               try {
+                // 1. ユーザーメッセージをDBに保存
                 await dbInstance.execute(
                   'INSERT INTO chat_messages (member_id, role, content, created_at) VALUES ($1, $2, $3, $4)',
                   [chatMemberId, 'user', msgText, new Date().toISOString()]
@@ -939,11 +950,133 @@ function App() {
                 const msgs = await dbInstance.select<{id: number, member_id: number, role: "user" | "assistant", content: string, created_at: string}[]>('SELECT * FROM chat_messages WHERE member_id = $1 ORDER BY created_at ASC', [chatMemberId]);
                 setChatMessages(msgs);
 
-                setTimeout(() => {
-                  setChatMessages(prev => [...prev, { id: Date.now(), member_id: chatMemberId, role: 'assistant', content: '（AIの返答機能は今後のセッションで実装予定です）', created_at: new Date().toISOString() }]);
-                }, 1000);
+                // ローディング表示用の一時メッセージを追加
+                setChatMessages(prev => [...prev, { id: Date.now(), member_id: chatMemberId, role: 'assistant', content: '（考えています...）', created_at: new Date().toISOString() }]);
+
+                // 2. プロバイダーのAPIキーとモデルを特定
+                const member = projectMembers.find(m => m.id === chatMemberId);
+                const modelId = member?.ai_model || "gpt-4o";
+                let providerType: ProviderType | null = null;
+                let apiKey = "";
+
+                if (modelId.includes("gpt")) providerType = PROVIDERS.OPENAI;
+                else if (modelId.includes("claude")) providerType = PROVIDERS.ANTHROPIC;
+                else if (modelId.includes("gemini")) providerType = PROVIDERS.GEMINI;
+
+                if (providerType) {
+                  const key = await getApiKey(providerType);
+                  if (key) apiKey = key;
+                }
+
+                if (!apiKey) {
+                   setChatMessages(prev => [
+                     ...prev.slice(0, -1),
+                     { id: Date.now(), member_id: chatMemberId, role: 'assistant', content: 'APIキーが設定されていません。設定画面からAPIキーを登録してください。', created_at: new Date().toISOString() }
+                   ]);
+                   return;
+                }
+
+                // 3. システムプロンプトの組み立て
+                const projectId = selectedProjectId;
+                let sysPrompt = "";
+                if (projectId) {
+                  try {
+                    sysPrompt = await getMergedSystemPrompt(dbInstance, {
+                      userId: 1, // Phase1では1固定
+                      projectId,
+                      memberId: chatMemberId
+                    });
+                  } catch (e) {
+                    console.error("System prompt merge error:", e);
+                  }
+                }
+
+                // 4. APIコール
+                let replyContent = "（APIコールエラー）";
+
+                try {
+                  if (providerType === PROVIDERS.OPENAI) {
+                     const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                       method: "POST",
+                       headers: {
+                         "Content-Type": "application/json",
+                         "Authorization": `Bearer ${apiKey}`
+                       },
+                       body: JSON.stringify({
+                         model: modelId,
+                         messages: [
+                           { role: "system", content: sysPrompt },
+                           ...msgs.map(m => ({ role: m.role, content: m.content }))
+                         ]
+                       })
+                     });
+                     const data = await response.json();
+                     if (data.choices && data.choices[0]) {
+                       replyContent = data.choices[0].message.content;
+                     } else {
+                       console.error("OpenAI API response format error:", data);
+                       replyContent = JSON.stringify(data);
+                     }
+                  } else if (providerType === PROVIDERS.ANTHROPIC) {
+                     const response = await fetch("https://api.anthropic.com/v1/messages", {
+                       method: "POST",
+                       headers: {
+                         "Content-Type": "application/json",
+                         "x-api-key": apiKey,
+                         "anthropic-version": "2023-06-01",
+                         "anthropic-dangerous-direct-browser-access": "true"
+                       },
+                       body: JSON.stringify({
+                         model: modelId,
+                         system: sysPrompt,
+                         max_tokens: 1024,
+                         messages: msgs.map(m => ({ role: m.role, content: m.content }))
+                       })
+                     });
+                     const data = await response.json();
+                     if (data.content && data.content[0]) {
+                        replyContent = data.content[0].text;
+                     } else {
+                        console.error("Anthropic API response format error:", data);
+                        replyContent = JSON.stringify(data);
+                     }
+                  } else if (providerType === PROVIDERS.GEMINI) {
+                     const geminiMsgs = msgs.map(m => ({
+                        role: m.role === 'user' ? 'user' : 'model',
+                        parts: [{ text: m.content }]
+                     }));
+                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          system_instruction: { parts: [{ text: sysPrompt }] },
+                          contents: geminiMsgs
+                        })
+                     });
+                     const data = await response.json();
+                     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                        replyContent = data.candidates[0].content.parts[0].text;
+                     } else {
+                        console.error("Gemini API response format error:", data);
+                        replyContent = JSON.stringify(data);
+                     }
+                  }
+                } catch (apiErr) {
+                   console.error("API Call failed:", apiErr);
+                   replyContent = `APIリクエストに失敗しました: ${apiErr}`;
+                }
+
+                // 5. 返答の保存と画面への反映
+                await dbInstance.execute(
+                  'INSERT INTO chat_messages (member_id, role, content, created_at) VALUES ($1, $2, $3, $4)',
+                  [chatMemberId, 'assistant', replyContent, new Date().toISOString()]
+                );
+
+                const finalMsgs = await dbInstance.select<{id: number, member_id: number, role: "user" | "assistant", content: string, created_at: string}[]>('SELECT * FROM chat_messages WHERE member_id = $1 ORDER BY created_at ASC', [chatMemberId]);
+                setChatMessages(finalMsgs);
+
               } catch(err) { console.error(err); }
-            }} className="flex gap-2">
+            }} className="flex gap-2 shrink-0">
               <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} className="input-wood flex-1" placeholder="メッセージを入力..." />
               <button type="submit" className="btn-primary" disabled={!chatInput.trim()}>📨 送信</button>
             </form>
