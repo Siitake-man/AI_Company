@@ -4,6 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* === ベースレイアウト固定（tailwindより後に置くことでカスケード優先） === */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 :root {
   /* === ベースカラー === */
   --color-bg: #FDF6E3;

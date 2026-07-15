@@ -75,8 +75,22 @@ CREATE TABLE members (
 );
 ```
 
-> **4層マージの最終形（コード側で組み立てる論理式）**
-> `system_prompt = users.core_profile + projects.values + departments.department_prompt + members.personality_prompt`
+> **4層マージ＋学習履歴の最終形（コード側で組み立てる論理式）**
+> `system_prompt = users.core_profile + projects.values + departments.department_prompt + members.personality_prompt + (member_learnings から取得した決定事項ルール)`
+
+### 1.5 member_learnings（メンバーごとの自動学習・決定事項履歴）
+
+```sql
+CREATE TABLE member_learnings (
+    id INTEGER PRIMARY KEY,
+    member_id INTEGER NOT NULL,
+    meeting_id INTEGER,               -- どの会議で決定されたか（NULL=手動追記・その他）
+    content TEXT NOT NULL,            -- 学習した決定事項・ルール
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (member_id) REFERENCES members(id),
+    FOREIGN KEY (meeting_id) REFERENCES meetings(id)
+);
+```
 
 ---
 

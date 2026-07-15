@@ -4,6 +4,8 @@ export const PROVIDERS = {
   OPENAI: "openai",
   ANTHROPIC: "anthropic",
   GEMINI: "gemini",
+  TAVILY: "tavily",
+  BRAVE: "brave"
 } as const;
 
 export type ProviderType = typeof PROVIDERS[keyof typeof PROVIDERS];

@@ -155,6 +155,11 @@ function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [projectMembers, setProjectMembers] = useState<any[]>([]);
 
+  // プロジェクト編集用の状態
+  const [isEditingProject, setIsEditingProject] = useState<boolean>(false);
+  const [editProjectPurpose, setEditProjectPurpose] = useState<string>("");
+  const [editProjectValues, setEditProjectValues] = useState<string>("");
+
   // 初期化とAPIキーの存在チェック
   useEffect(() => {
     async function initApp() {
@@ -331,8 +336,8 @@ function App() {
   const fetchMembers = async () => {
     if (!dbInstance || selectedProjectId === null) return;
     try {
-      const result = await dbInstance.select<{id: number, name: string, role: string, avatar_id: string, dept_name: string}[]>(
-        `SELECT m.id, m.name, m.role, m.avatar_id, d.name as dept_name
+      const result = await dbInstance.select<{id: number, name: string, role: string, avatar_id: string, dept_name: string, personality_prompt: string}[]>(
+        `SELECT m.id, m.name, m.role, m.avatar_id, m.personality_prompt, d.name as dept_name
          FROM members m
          JOIN departments d ON m.department_id = d.id
          WHERE d.project_id = ?
@@ -415,6 +420,23 @@ function App() {
     } catch (e) {
       console.error("Failed to create project", e);
       setCreateProjectError(`プロジェクト作成失敗: ${String(e)}`);
+    }
+  };
+
+  // プロジェクト設定の更新処理
+  const handleSaveProjectSettings = async () => {
+    if (!dbInstance || selectedProjectId === null) return;
+    try {
+      const nowStr = new Date().toISOString();
+      await dbInstance.execute(
+        'UPDATE projects SET purpose = ?, "values" = ?, updated_at = ? WHERE id = ?',
+        [editProjectPurpose, editProjectValues, nowStr, selectedProjectId]
+      );
+      await fetchProjects();
+      setIsEditingProject(false);
+    } catch (e) {
+      console.error("Failed to update project settings", e);
+      alert(`更新に失敗しました: ${String(e)}`);
     }
   };
 
@@ -507,7 +529,7 @@ function App() {
   }
 
   return (
-    <main className="bg-[var(--color-bg)] h-screen overflow-hidden text-[var(--color-text)] flex flex-col" style={{ border: "6px solid var(--color-border-outer)", borderRadius: "8px", boxShadow: "inset 0 0 20px rgba(139,90,43,0.2)" }}><div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
+    <main className="bg-[var(--color-bg)] overflow-hidden text-[var(--color-text)] flex flex-col p-8 gap-6" style={{ height: '100vh', border: "6px solid var(--color-border-outer)", borderRadius: "8px", boxShadow: "inset 0 0 20px rgba(139,90,43,0.2)", boxSizing: 'border-box' }}>
       {/* 共通ヘッダー */}
       <div className="border-b-[4px] border-[var(--color-border-outer)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm">
         <div
@@ -562,9 +584,9 @@ function App() {
 
       {/* S2: プロジェクト一覧（ホーム）画面 */}
       {currentScreen === "home" && (
-        <div className="flex-1 flex gap-6 h-[calc(100vh-140px)]">
+        <div className="flex-1 flex gap-6 min-h-0">
           {/* 左サイドバー */}
-          <div className="w-64 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
             <div className="panel-paper p-3 text-center mb-2">
               <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
             </div>
@@ -613,19 +635,42 @@ function App() {
                 return (
                   <>
                     {/* スクロールするコンテンツ領域 */}
-                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingRight: '4px' }}>
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingRight: '4px', minHeight: 0 }}>
                       {/* ヘッダー情報 */}
-                      <div className="panel-paper p-6 flex items-start gap-4">
-                        <div className="text-5xl">🌱</div>
-                        <div className="flex-1">
-                          <h2 className="text-2xl font-bold mb-2">
-                            {project?.name}
-                          </h2>
-                          <p className="text-sm text-[var(--color-text-sub)] leading-relaxed">
-                            {project?.purpose}
-                          </p>
+                      <div className="panel-paper p-6 flex flex-col gap-4">
+                        <div className="flex items-start gap-4">
+                          <div className="text-5xl shrink-0">🌱</div>
+                          <div className="flex-1 min-w-0">
+                            <h2 className="text-2xl font-bold mb-1 truncate">
+                              {project?.name}
+                            </h2>
+                            <div className="text-sm text-[var(--color-text-sub)] space-y-2 mt-2">
+                              <div>
+                                <span className="font-bold text-xs text-gray-500 block">🎯 プロジェクトの目的</span>
+                                <p className="mt-0.5 leading-relaxed">{project?.purpose || "目的が未設定です"}</p>
+                              </div>
+                              <div>
+                                <span className="font-bold text-xs text-gray-500 block">💎 価値観・判断基準（コンテキスト）</span>
+                                <p className="mt-0.5 leading-relaxed whitespace-pre-wrap">{project?.values || "価値観が未設定です"}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <button 
+                              className="btn-secondary text-xs py-2 px-3 text-left whitespace-nowrap"
+                              onClick={() => {
+                                if (project) {
+                                  setEditProjectPurpose(project.purpose || "");
+                                  setEditProjectValues(project.values || "");
+                                  setIsEditingProject(true);
+                                }
+                              }}
+                            >
+                              📝 コンテキスト編集
+                            </button>
+                            <button className="btn-secondary text-xs py-2 px-3 text-left whitespace-nowrap" onClick={() => setCurrentScreen("teamManage")}>👥 チームを管理する</button>
+                          </div>
                         </div>
-                        <button className="btn-secondary" onClick={() => setCurrentScreen("teamManage")}>👥 チームを管理する</button>
                       </div>
 
                       {/* 統計情報 */}
@@ -737,9 +782,9 @@ function App() {
 
       {/* S4: チーム管理画面 */}
       {currentScreen === "teamManage" && projects.find(p => p.id === selectedProjectId) && (
-        <div className="flex-1 flex gap-6 h-[calc(100vh-140px)]">
+        <div className="flex-1 flex gap-6 min-h-0">
           {/* 左サイドバー */}
-          <div className="w-64 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
             <div className="panel-paper p-3 text-center mb-2">
               <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
             </div>
@@ -777,7 +822,7 @@ function App() {
             </div>
 
             {/* メンバーリスト（縦型） */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px', minHeight: 0 }}>
               {projectMembers.map((member) => (
                 <div key={member.id} className="panel-paper flex items-center p-3 gap-4 shadow-sm" style={{ backgroundColor: 'var(--color-bg)' }}>
                   {/* アバター画像枠 */}
@@ -823,9 +868,9 @@ function App() {
 
       {/* S6: 1on1チャット画面 */}
       {currentScreen === "chat" && chatMemberId && (
-        <div className="flex-1 flex gap-6 h-[calc(100vh-140px)]">
+        <div className="flex-1 flex gap-6 min-h-0">
           {/* 左サイドバー */}
-          <div className="w-64 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
+          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4 overflow-y-auto">
             <div className="panel-paper p-3 text-center mb-2">
               <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
             </div>
@@ -908,7 +953,8 @@ function App() {
 
       {/* S1: APIキー設定画面 */}
       {currentScreen === "apiKeySetup" && (
-        <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 mt-4">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 mt-4 pb-8">
           {/* 説明パネル */}
           <div className="panel-paper p-5 shadow-sm flex flex-col gap-2">
             <h2 className="font-bold text-lg flex items-center gap-1">
@@ -918,7 +964,8 @@ function App() {
               AIカンパニーでは、ユーザーのプライバシーとセキュリティを守るため、APIキーをデータベースではなく、お使いのPCのシステム（Windows: 資格情報マネージャー、Mac: キーチェーン）の<strong>セキュアな金庫</strong>へ直接保管します。平文でディスクに書き込まれることはありません。
             </p>
             <p className="text-xs text-[var(--color-text-sub)] italic mt-1">
-              ※AI社員の稼働には、少なくとも1つのAPIキー（OpenAI / Anthropic / Gemini）の登録が必要です。
+              ※AI社員の稼働には、少なくとも1つのAPIキー（OpenAI / Anthropic / Gemini）の登録が必要です。<br/>
+              ※Web検索（情報収集）には Tavily / Brave キーが利用可能ですが、未登録の場合は既存の OpenAI / Gemini の組み込み検索で自動的に代替されます。
             </p>
           </div>
 
@@ -952,6 +999,14 @@ function App() {
               } else if (provider === PROVIDERS.GEMINI) {
                 title = "Google Gemini API (gemini-1.5-pro, etc.)";
                 placeholder = "AIzaSy...";
+
+              } else if (provider === PROVIDERS.TAVILY) {
+                title = "Tavily Search API (Web検索用)";
+                placeholder = "tvly-...";
+
+              } else if (provider === PROVIDERS.BRAVE) {
+                title = "Brave Search API (Web検索用)";
+                placeholder = "BSA...";
 
               }
 
@@ -1032,11 +1087,13 @@ function App() {
             )}
           </div>
         </div>
+        </div>
       )}
 
       {/* S9: 設定画面 */}
       {currentScreen === "settings" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-4">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-4 pb-8">
           
           {/* 左ペイン：APIキーの安全な管理（S1の改良・流用） */}
           <div className="flex flex-col gap-6">
@@ -1073,6 +1130,12 @@ function App() {
                 } else if (provider === PROVIDERS.GEMINI) {
                   title = "Google Gemini API (gemini-1.5-pro, etc.)";
                   placeholder = "AIzaSy...";
+                } else if (provider === PROVIDERS.TAVILY) {
+                  title = "Tavily Search API (Web検索用)";
+                  placeholder = "tvly-...";
+                } else if (provider === PROVIDERS.BRAVE) {
+                  title = "Brave Search API (Web検索用)";
+                  placeholder = "BSA...";
                 }
 
                 return (
@@ -1178,11 +1241,13 @@ function App() {
           </div>
 
         </div>
+        </div>
       )}
 
       {/* S3: 新規プロジェクト作成画面 */}
       {currentScreen === "createProject" && (
-        <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 mt-4">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 mt-4 pb-8">
           <div className="panel-paper p-5 shadow-sm flex flex-col gap-2">
             <h2 className="font-bold text-lg flex items-center gap-1.5">
               🌱 新しいプロジェクトの作成 (S3)
@@ -1309,11 +1374,12 @@ function App() {
             </div>
           </div>
         </div>
+        </div>
       )}
 
       {/* S2 / ノードB検証テスト画面 */}
       {currentScreen === "promptTest" && (
-        <div className="flex-1 flex flex-col gap-6">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-6">
           {/* テスト切り替えエリア */}
           <div className="panel-paper p-4 shadow-sm flex flex-col gap-4">
             <h2 className="font-bold text-lg flex items-center gap-1">
@@ -1375,7 +1441,58 @@ function App() {
           </div>
         </div>
       )}
-    </div>
+
+      {/* プロジェクトコンテキスト編集モーダル */}
+      {isEditingProject && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="panel-paper p-6 bg-white w-full max-w-2xl flex flex-col gap-4 shadow-xl border-4 border-[var(--color-border-outer)]">
+            <h3 className="font-bold text-lg border-b-2 border-[var(--color-border-inner)] pb-2 flex items-center gap-1.5">
+              📝 プロジェクトのコンテキスト編集
+            </h3>
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-[var(--color-text-sub)]">
+                🎯 プロジェクトの目的:
+              </label>
+              <textarea
+                value={editProjectPurpose}
+                onChange={(e) => setEditProjectPurpose(e.target.value)}
+                rows={3}
+                className="w-full p-3 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-xs leading-relaxed bg-[var(--color-bg)] text-[var(--color-text)] resize-y"
+                placeholder="プロジェクトの目的を入力..."
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-[var(--color-text-sub)]">
+                💎 判断軸・価値観 (第2層):
+              </label>
+              <textarea
+                value={editProjectValues}
+                onChange={(e) => setEditProjectValues(e.target.value)}
+                rows={6}
+                className="w-full p-3 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-xs leading-relaxed bg-[var(--color-bg)] text-[var(--color-text)] resize-y"
+                placeholder="意思決定の軸や、前提となるコンテキスト、価値観を入力。議論が進むごとに追記・修正します。"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 mt-2">
+              <button
+                onClick={() => setIsEditingProject(false)}
+                className="btn-secondary"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveProjectSettings}
+                className="btn-primary"
+              >
+                💾 変更を保存する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
