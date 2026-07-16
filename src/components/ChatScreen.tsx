@@ -51,7 +51,7 @@ export const ChatScreen = ({
         try {
           // 1. セッションがあるか確認
           let sessionRows = await dbInstance!.select<{ id: number }[]>(
-            "SELECT id FROM chat_sessions WHERE member_id = ? ORDER BY created_at DESC LIMIT 1",
+            "SELECT id FROM chat_sessions WHERE member_id = ? ORDER BY started_at DESC LIMIT 1",
             [chatMemberId]
           );
 
@@ -61,16 +61,16 @@ export const ChatScreen = ({
           } else {
             // 2. なければ新規作成
             const res = await dbInstance!.execute(
-              "INSERT INTO chat_sessions (member_id, title, created_at) VALUES (?, ?, ?)",
-              [chatMemberId, "新しいチャット", new Date().toISOString()]
+              "INSERT INTO chat_sessions (member_id, started_at) VALUES (?, ?)",
+              [chatMemberId, new Date().toISOString()]
             );
             sessionId = res.lastInsertId;
           }
 
-          // chatSessionId が取得できない場合(Tauri 2系で id が返らない等のケース)のフォールバック
+          // chatSessionId が取得できない場合のフォールバック
           if (!sessionId) {
               const fallbackRows = await dbInstance!.select<{ id: number }[]>(
-                  "SELECT id FROM chat_sessions WHERE member_id = ? ORDER BY created_at DESC LIMIT 1",
+                  "SELECT id FROM chat_sessions WHERE member_id = ? ORDER BY started_at DESC LIMIT 1",
                   [chatMemberId]
               );
               if (fallbackRows.length > 0) {

@@ -39,8 +39,8 @@ flowchart TD
     style D3 fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style D4 fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style E5 fill:#86efac,stroke:#c8a96e  %% 完了カラー
-    style E6 fill:#fdf6e3,stroke:#c8a96e
-    style F7A fill:#c4b5fd,stroke:#c8a96e
+    style E6 fill:#86efac,stroke:#c8a96e  %% 完了カラー
+    style F7A fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style F7 fill:#c4b5fd,stroke:#c8a96e
     style G8 fill:#86efac,stroke:#c8a96e
     style H fill:#86efac,stroke:#c8a96e
@@ -62,8 +62,8 @@ flowchart TD
 | D3 | S3 プロジェクト作成 | ✅ 2026-07-15完了（目的・価値観の登録、コンテキスト編集機能の実装済） |
 | D4 | S4 チーム管理 | ✅ 2026-07-15完了（メンバー一覧クラッシュの修正・表示確認済） |
 | E5 | S5 メンバーエディタ | ✅ 2026-07-15完了（継承元パネルの表示、および成長日誌の確認・削除機能の実装完了） |
-| E6 | S6 1on1チャット | ✅ 2026-07-15完了（エラーハンドリング改善、トークン/料金トラッキング、UIブラッシュアップ完了） |
-| F7A | 会議モード選択 | 会議開始時に「探索」「収束」のどちらかを選ぶモーダルが機能する |
+| E6 | S6 1on1チャット | ✅ 2026-07-16完了（Jules導入のセッション化に伴うDBマイグレーション漏れ修正と開通確認完了） |
+| F7A | 会議モード選択 | ✅ 2026-07-16完了（HomeScreenからの起動、探索/収束選択とMeetingScreenへの遷移確認済） |
 | F7 | S7 会議モード | ラウンドロビンで発言が進行し、10秒割り込みウィンドウ・最大3回連鎖制限・一時停止ボタンが動作する |
 | G8 | S8 議事録・サマリー | モードに応じたテンプレートで議事録が生成され、**決定事項保存時に参加メンバーに自動学習（member_learningsへ追加）される** |
 | H | Markdownエクスポート | 議事録をMarkdownファイルとしてローカルに出力できる |
@@ -90,3 +90,5 @@ flowchart TD
 | 2026-07-13 | Antigravity | ノードC9（S9: 設定画面）の完了に伴いステータスを更新。 |
 | 2026-07-15 | Antigravity | ノードD2, D3, D4 の実装完了。検索API(Tavily/Brave)フォールバック設計の追加を各設計書へ反映。 |
 | 2026-07-15 | Antigravity | ノードE5（S5: メンバーエディタ）の実装完了。継承元（プロジェクト/部署）表示と、成長日誌（自動学習履歴）機能を追加。 |
+| 2026-07-16 | Antigravity | 1on1チャット(E6)のDBセッションスキーマ不整合を修正し、会議モード選択モーダル(F7A)を実装完了。消失した4画面をコンポーネント分割で復元。 |
+

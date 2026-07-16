@@ -194,9 +194,6 @@ FAILED REPLACE IN PROMPT:
 }
 
 FAILED REPLACE IN APP.TSX:
-import { useState, useEffect } from "react";
-
-FAILED REPLACE IN APP.TSX:
   // 画面遷移・APIキー関連の状態
   const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat">("apiKeySetup");
   const [chatMemberId, setChatMemberId] = useState<number | null>(null);
@@ -619,6 +616,31 @@ FAILED REPLACE IN APP.TSX:
                     <button className="btn-secondary text-green-700 py-1.5" onClick={() => { setChatMemberId(member.id); setCurrentScreen("chat"); }}>💬 話す</button>
                     <button className="btn-secondary text-purple-700 py-1.5" onClick={() => alert("S5: メンバーエディタは今後実装予定")}>✏️ 編集</button>
                   </div>
+
+FAILED REPLACE IN APP.TSX:
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+
+FAILED REPLACE IN APP.TSX:
+  // モデル一覧の取得
+  const fetchModels = async () => {
+    if (!dbInstance) return;
+    try {
+      const result = await dbInstance.select<{ id: number; provider: string; model_id: string; display_name: string }[]>(
+        "SELECT id, provider, model_id, display_name FROM ai_models ORDER BY provider, display_name"
+      );
+      setAvailableModels(result);
+    } catch (e) {
+      console.error("Failed to fetch models", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchModels();
+  }, [dbInstance]);
 
 FAILED REPLACE IN APP.TSX:
         // 2. セキュリティ金庫（APIキー）の登録状態を確認

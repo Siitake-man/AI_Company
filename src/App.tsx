@@ -12,6 +12,13 @@ import {
 import { ChatScreen } from "./components/ChatScreen";
 import { TeamManageScreen } from "./components/TeamManageScreen";
 import { MemberEditorModal } from "./components/MemberEditorModal";
+import { HomeScreen } from "./components/HomeScreen";
+import { MeetingModeModal, MeetingMode } from "./components/MeetingModeModal";
+import { MeetingScreen } from "./components/MeetingScreen";
+import { PromptTestScreen } from "./components/PromptTestScreen";
+import { CreateProjectScreen } from "./components/CreateProjectScreen";
+import { SettingsScreen } from "./components/SettingsScreen";
+import { ApiKeySetupScreen } from "./components/ApiKeySetupScreen";
 
 
 // 部署・メンバープリセット定義
@@ -75,55 +82,15 @@ function App() {
   const [generateError, setGenerateError] = useState<string>("");
 
   // 画面遷移・APIキー関連の状態
-  const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat">("apiKeySetup");
+  const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting">("apiKeySetup");
   const [chatMemberId, setChatMemberId] = useState<number | null>(null);
+  const [isMeetingModeModalOpen, setIsMeetingModeModalOpen] = useState<boolean>(false);
+  const [selectedMeetingMode, setSelectedMeetingMode] = useState<MeetingMode | null>(null);
+  const [meetingAgenda, setMeetingAgenda] = useState<string>("");
   const [chatSessionId, setChatSessionId] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<{id: number, role: "user" | "assistant", content: string, created_at: string}[]>([]);
 
-  // DB Sync Effect for Chat (Session creation and Message loading)
-  useEffect(() => {
-    if (currentScreen === "chat" && chatMemberId && dbInstance) {
-      async function syncChat() {
-        try {
-          // 1. セッションがあるか確認
-          let sessionRows = await dbInstance!.select<{ id: number }[]>(
-            "SELECT id FROM chat_sessions WHERE member_id = ? LIMIT 1",
-            [chatMemberId]
-          );
-          let sId: number;
-          if (sessionRows.length === 0) {
-            // なければ新規作成
-            const res = await dbInstance!.execute(
-              "INSERT INTO chat_sessions (member_id, started_at) VALUES (?, ?)",
-              [chatMemberId, new Date().toISOString()]
-            );
-            sId = res.lastInsertId as number;
-          } else {
-            sId = sessionRows[0].id;
-          }
-          setChatSessionId(sId);
 
-          // 2. メッセージ履歴の取得
-          const msgs = await dbInstance!.select<{id: number, session_id: number, sender: string, content: string, created_at: string}[]>(
-            "SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC",
-            [sId]
-          );
-          
-          // 画面表示用にフォーマット（dbのsenderをroleにマッピング）
-          const formattedMsgs = msgs.map(m => ({
-            id: m.id,
-            role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-            content: m.content,
-            created_at: m.created_at
-          }));
-          setChatMessages(formattedMsgs);
-        } catch (e) {
-          console.error("Failed to sync chat session / messages", e);
-        }
-      }
-      syncChat();
-    }
-  }, [currentScreen, chatMemberId, dbInstance]);
 
   // 新規プロジェクト作成用の状態
   const [newProjectName, setNewProjectName] = useState<string>("");
@@ -202,10 +169,7 @@ function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [projectMembers, setProjectMembers] = useState<any[]>([]);
 
-  // プロジェクト編集用の状態
-  const [isEditingProject, setIsEditingProject] = useState<boolean>(false);
-  const [editProjectPurpose, setEditProjectPurpose] = useState<string>("");
-  const [editProjectValues, setEditProjectValues] = useState<string>("");
+
 
   // モデル管理用の状態
   const [availableModels, setAvailableModels] = useState<{ id: number; provider: string; model_id: string; display_name: string }[]>([]);
@@ -402,6 +366,37 @@ function App() {
               cost_usd REAL NOT NULL,
               created_at TEXT NOT NULL,
               FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+          );
+        `);
+
+        // chat_sessions テーブルの作成 (1on1チャット用)
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS chat_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            member_id INTEGER NOT NULL,
+            started_at TEXT NOT NULL,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+          );
+        `);
+
+        // chat_messages テーブルの作成 (session_idを持つ最新構造へ自動移行)
+        try {
+          // session_id カラムがあるかチェック
+          await db.select("SELECT session_id FROM chat_messages LIMIT 1");
+        } catch (e) {
+          // カラムがないかテーブル自体がない場合、ドロップして新スキーマで作り直す
+          console.log("Migrating chat_messages table to session-based schema...");
+          await db.execute("DROP TABLE IF EXISTS chat_messages");
+        }
+
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            sender TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
           );
         `);
 
@@ -707,22 +702,7 @@ function App() {
     }
   };
 
-  // プロジェクト設定の更新処理
-  const handleSaveProjectSettings = async () => {
-    if (!dbInstance || selectedProjectId === null) return;
-    try {
-      const nowStr = new Date().toISOString();
-      await dbInstance!.execute(
-        'UPDATE projects SET purpose = ?, "values" = ?, updated_at = ? WHERE id = ?',
-        [editProjectPurpose, editProjectValues, nowStr, selectedProjectId]
-      );
-      await fetchProjects();
-      setIsEditingProject(false);
-    } catch (e) {
-      console.error("Failed to update project settings", e);
-      alert(`更新に失敗しました: ${String(e)}`);
-    }
-  };
+
 
   // APIキーの個別保存処理
   async function handleSaveKey(provider: ProviderType) {
@@ -871,210 +851,23 @@ function App() {
 
       {/* S2: プロジェクト一覧（ホーム）画面 */}
       {currentScreen === "home" && (
-        <div style={{ display: 'flex', flex: '1 1 0%', minHeight: 0, gap: '24px', overflow: 'hidden' }}>
-          {/* 左サイドバー */}
-          <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
-            <div className="panel-paper p-3 text-center mb-2 shrink-0">
-              <h2 className="font-title text-xl font-bold">プロジェクト 🌿</h2>
-            </div>
-
-            <div className="flex-1 flex flex-col gap-2" style={{ overflowY: 'auto', minHeight: 0 }}>
-              {projects.map((proj) => (
-                <div
-                  key={proj.id}
-                  onClick={() => setSelectedProjectId(proj.id)}
-                  className={selectedProjectId === proj.id ? "sidebar-item-active" : "sidebar-item"}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🌱</span>
-                    <span className="truncate">{proj.name}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button 
-              onClick={() => {
-                setCreateProjectError("");
-                setCurrentScreen("createProject");
-              }}
-              className="btn-secondary w-full justify-center shrink-0 py-3"
-            >
-              ＋ 新しいプロジェクト
-            </button>
-          </div>
-
-          {/* 右メインエリア: flex-colで「スクロール域」と「フッターボタン」を確実に分離 */}
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0%', minHeight: 0, height: '100%', overflow: 'hidden' }}>
-            {selectedProjectId ? (
-              (() => {
-                // 部署ごとにメンバーをグループ化
-                const deptsMap: { [key: string]: any[] } = {};
-                projectMembers.forEach((m) => {
-                  if (!deptsMap[m.dept_name]) {
-                    deptsMap[m.dept_name] = [];
-                  }
-                  deptsMap[m.dept_name].push(m);
-                });
-
-                const project = projects.find((p) => p.id === selectedProjectId);
-
-                return (
-                  <>
-                    {/* スクロールするコンテンツ領域 */}
-                    <div style={{ flex: '1 1 0%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingRight: '4px', minHeight: 0 }}>
-                      {/* ヘッダー情報 */}
-                      <div className="panel-paper p-6 flex flex-col gap-4">
-                        <div className="flex items-start gap-4">
-                          <div className="text-5xl shrink-0">🌱</div>
-                          <div className="flex-1 min-w-0">
-                            <h2 className="text-2xl font-bold mb-1 truncate">
-                              {project?.name}
-                            </h2>
-                            <div className="text-sm text-[var(--color-text-sub)] space-y-2 mt-2">
-                              <div>
-                                <span className="font-bold text-xs text-gray-500 block">🎯 プロジェクトの目的</span>
-                                <p className="mt-0.5 leading-relaxed">{project?.purpose || "目的が未設定です"}</p>
-                              </div>
-                              <div>
-                                <span className="font-bold text-xs text-gray-500 block">💎 価値観・判断基準（コンテキスト）</span>
-                                <p className="mt-0.5 leading-relaxed whitespace-pre-wrap">{project?.values || "価値観が未設定です"}</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-2 shrink-0">
-                            <button 
-                              className="btn-secondary text-xs py-2 px-3 text-left whitespace-nowrap"
-                              onClick={() => {
-                                if (project) {
-                                  setEditProjectPurpose(project.purpose || "");
-                                  setEditProjectValues(project.values || "");
-                                  setIsEditingProject(true);
-                                }
-                              }}
-                            >
-                              📝 コンテキスト編集
-                            </button>
-                            <button className="btn-secondary text-xs py-2 px-3 text-left whitespace-nowrap" onClick={() => setCurrentScreen("teamManage")}>👥 チームを管理する</button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 統計情報 */}
-                      <div className="flex gap-4"><div className="panel-paper px-5 py-3 flex items-center gap-3 border-2 border-[var(--color-border-inner)] bg-[var(--color-bg)]"><span>👥 {projectMembers.length} メンバー</span></div><div className="panel-paper px-5 py-3 flex items-center gap-3 border-2 border-[var(--color-border-inner)] bg-[var(--color-bg)]"><span>📅 最終会議: --</span></div><div className="panel-paper px-5 py-3 flex items-center gap-3 border-2 border-[var(--color-border-inner)] bg-[var(--color-bg)]"><span>🎙️ 会議回数: 0回</span></div></div>
-
-                      {/* メンバーグリッド（部署グループごと） */}
-                      <div className="mt-4">
-                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                          <span>👥</span> チームメンバー
-                        </h3>
-
-                        {Object.keys(deptsMap).map((deptName) => (
-                          <div key={deptName} className="mb-8 last:mb-0">
-                            {/* 部署ヘッダーラベル */}
-                            <div className="flex items-center justify-between border-b-2 border-[var(--color-border-inner)] pb-2 mb-4 px-1">
-                              <span className="font-bold text-sm text-[var(--color-text-sub)] flex items-center gap-1.5">
-                                📁 {deptName}
-                              </span>
-                              <span className="text-[10px] bg-[#EDD9B0] text-[var(--color-text-sub)] border border-[var(--color-border-inner)] px-2 py-0.5 rounded font-bold shadow-sm">
-                                ✓ 価値観を継承中
-                              </span>
-                            </div>
-
-                            {/* 部署内メンバーカードの横並びグリッド */}
-                            <div 
-                              style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-                                gap: '20px' 
-                              }} 
-                              className="w-full"
-                            >
-                              {deptsMap[deptName].map((member) => (
-                                <div
-                                  key={member.id}
-                                  className="panel-paper flex flex-col items-center p-4 text-center relative overflow-hidden shadow transition-all hover:-translate-y-1 hover:shadow-md max-w-[220px] w-full mx-auto"
-                                  style={{ backgroundColor: getRoleColor(member.role, member.dept_name), boxShadow: "2px 4px 0px var(--color-border-inner)" }}
-                                >
-                                  {/* アバター画像枠 */}
-                                  <div 
-                                    className="bg-white/60 rounded-xl flex items-center justify-center border-2 border-[var(--color-border-inner)] avatar-pixel shadow-inner overflow-hidden mb-3 shrink-0"
-                                    style={{ width: '100px', height: '100px' }}
-                                  >
-                                    {getAvatarPath(member.avatar_id) ? (
-                                      <img 
-                                        src={getAvatarPath(member.avatar_id)} 
-                                        alt={member.name}
-                                        className="w-full h-full object-cover select-none"
-                                        onError={(e) => {
-                                          (e.target as HTMLElement).style.display = "none";
-                                        }}
-                                      />
-                                    ) : (
-                                      <span className="text-4xl">{getEmojiForRole(member.dept_name, member.role)}</span>
-                                    )}
-                                  </div>
-                                  {/* 役割名 */}
-                                  <h4 className="font-bold text-sm mb-1 text-[var(--color-text)]">
-                                    {member.name}
-                                  </h4>
-                                  {/* 役割の説明 */}
-                                  <p className="text-xxs text-[var(--color-text-sub)] leading-relaxed max-w-[180px] h-10 overflow-y-auto mb-3">
-                                    {member.role}
-                                  </p>
-                                  {/* 1on1で話すボタンを追加 */}
-                                  <button
-                                    onClick={() => {
-                                      setChatMemberId(member.id);
-                                      setCurrentScreen("chat");
-                                    }}
-                                    className="btn-secondary w-full justify-center py-1 text-xs shrink-0"
-                                    style={{ padding: '0.25rem 0.5rem', boxShadow: '0px 2px 0px var(--color-border-inner)' }}
-                                  >
-                                    💬 1on1で話す
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* 全体メンバー追加プレースホルダー */}
-                        <div className="mt-6 flex justify-start">
-                          <div 
-                            className="panel-paper flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:bg-[#EDD9B0] transition-all border-dashed border-4 border-[var(--color-border-inner)] opacity-70 hover:opacity-90 w-full max-w-[220px]"
-                            style={{ minHeight: '172px' }}
-                          >
-                            <span className="text-3xl text-[var(--color-text-sub)] mb-1">＋</span>
-                            <span className="font-bold text-xs text-[var(--color-text-sub)]">メンバーを追加</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 会議開始フッター（スクロール外の固定フッター＝絶対配置なし） */}
-                    <div 
-                      className="border-t-2 border-[var(--color-border-inner)] bg-[var(--color-panel)] flex justify-end"
-                      style={{ padding: '12px 24px', flexShrink: 0 }}
-                    >
-                      <button
-                        onClick={() => alert("会議機能は今後実装予定です")}
-                        className="btn-primary text-lg py-3 px-8 rounded-xl shadow-lg hover:scale-105 transition-transform"
-                      >
-                        <span className="text-2xl">🎙️</span> 会議を始める
-                      </button>
-                    </div>
-                  </>
-                );
-              })()
-            ) : (
-              <div className="panel-paper p-10 flex flex-col items-center justify-center h-full gap-4 text-[var(--color-text-sub)]">
-                <span className="text-4xl">🌱</span>
-                <div className="flex flex-col items-center justify-center h-full"><div className="text-6xl mb-4">🏡</div><p className="font-title text-3xl text-center leading-relaxed">あなたのミッションのために、<br/>最高のAIチームをつくりましょう。🌸</p></div>
-              </div>
-            )}
-          </div>
-        </div>
+        <HomeScreen
+          dbInstance={dbInstance}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          setSelectedProjectId={setSelectedProjectId}
+          projectMembers={projectMembers}
+          getAvatarPath={getAvatarPath}
+          getEmojiForRole={getEmojiForRole}
+          getRoleColor={getRoleColor}
+          setChatMemberId={setChatMemberId}
+          setCurrentScreen={setCurrentScreen as (s: string) => void}
+          setCreateProjectError={setCreateProjectError}
+          fetchProjects={fetchProjects}
+          onStartMeetingClick={() => {
+            setIsMeetingModeModalOpen(true);
+          }}
+        />
       )}
 
 
@@ -1122,6 +915,95 @@ function App() {
         />
       )}
 
+      {/* F7: 会議モード画面 (議論進行中) */}
+      {currentScreen === "meeting" && (
+        <MeetingScreen
+          dbInstance={dbInstance}
+          projectMembers={projectMembers}
+          selectedProjectId={selectedProjectId}
+          projects={projects}
+          meetingMode={selectedMeetingMode}
+          meetingAgenda={meetingAgenda}
+          setCurrentScreen={setCurrentScreen as (screen: any) => void}
+          getAvatarPath={getAvatarPath}
+          getEmojiForRole={getEmojiForRole}
+          getRoleColor={getRoleColor}
+        />
+      )}
+
+      {/* S1: APIキー設定画面 */}
+      {currentScreen === "apiKeySetup" && (
+        <ApiKeySetupScreen
+          apiKeysStatus={apiKeysStatus}
+          successMsg={successMsg}
+          saveErrors={saveErrors}
+          inputKeys={inputKeys}
+          setInputKeys={setInputKeys}
+          handleSaveKey={handleSaveKey}
+          handleDeleteKey={handleDeleteKey}
+          setCurrentScreen={setCurrentScreen as (s: string) => void}
+        />
+      )}
+
+      {/* ノードB検証テスト画面 */}
+      {currentScreen === "promptTest" && (
+        <PromptTestScreen
+          selectedMemberId={selectedMemberId}
+          setSelectedMemberId={setSelectedMemberId}
+          generateError={generateError}
+          mergedPrompt={mergedPrompt}
+        />
+      )}
+
+      {/* S9: 設定画面 */}
+      {currentScreen === "settings" && (
+        <SettingsScreen
+          apiKeysStatus={apiKeysStatus}
+          successMsg={successMsg}
+          setSuccessMsg={setSuccessMsg}
+          saveErrors={saveErrors}
+          setSaveErrors={setSaveErrors}
+          inputKeys={inputKeys}
+          setInputKeys={setInputKeys}
+          handleSaveKey={handleSaveKey}
+          handleDeleteKey={handleDeleteKey}
+          modelSyncStatus={modelSyncStatus}
+          availableModels={availableModels}
+          newModelProvider={newModelProvider}
+          setNewModelProvider={setNewModelProvider}
+          newModelId={newModelId}
+          setNewModelId={setNewModelId}
+          newModelDisplayName={newModelDisplayName}
+          setNewModelDisplayName={setNewModelDisplayName}
+          fetchModels={fetchModels}
+          fetchMembers={fetchMembers}
+          dbInstance={dbInstance}
+          editCoreProfile={editCoreProfile}
+          setEditCoreProfile={setEditCoreProfile}
+          profileSaveSuccess={profileSaveSuccess}
+          profileSaveError={profileSaveError}
+          handleSaveProfile={handleSaveProfile}
+          setCurrentScreen={setCurrentScreen as (s: string) => void}
+        />
+      )}
+
+      {/* S3: 新規プロジェクト作成画面 */}
+      {currentScreen === "createProject" && (
+        <CreateProjectScreen
+          newProjectName={newProjectName}
+          setNewProjectName={setNewProjectName}
+          newProjectPurpose={newProjectPurpose}
+          setNewProjectPurpose={setNewProjectPurpose}
+          newProjectValues={newProjectValues}
+          setNewProjectValues={setNewProjectValues}
+          selectedDepts={selectedDepts}
+          setSelectedDepts={setSelectedDepts}
+          createProjectError={createProjectError}
+          handleCreateProject={handleCreateProject}
+          setCurrentScreen={setCurrentScreen as (s: string) => void}
+        />
+      )}
+
       {/* S5: メンバーエディタ（モーダル） */}
       <MemberEditorModal
         editingMember={editingMember}
@@ -1146,184 +1028,18 @@ function App() {
         setMemberStats={setMemberStats}
       />
 
-      {/* S5: メンバーエディタ（モーダル） */}
-      {editingMember && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="panel-paper p-6 bg-white w-full max-w-lg flex flex-col gap-4 shadow-xl border-4 border-[var(--color-border-outer)]" style={{ backgroundColor: 'var(--color-bg)', maxHeight: '90vh' }}>
-            <div className="flex justify-between items-center border-b-2 border-[var(--color-border-inner)] pb-2 shrink-0">
-              <h3 className="font-bold text-lg flex items-center gap-1.5">
-                ✏️ メンバープロフィールの編集 (S5)
-              </h3>
-              <button 
-                onClick={() => setEditingMember(null)}
-                className="text-gray-500 hover:text-gray-700 font-bold"
-              >
-                ✕
-              </button>
-            </div>
+      {/* F7A: 会議モード選択モーダル */}
+      <MeetingModeModal
+        isOpen={isMeetingModeModalOpen}
+        onClose={() => setIsMeetingModeModalOpen(false)}
+        onConfirm={(mode, agenda) => {
+          setIsMeetingModeModalOpen(false);
+          setSelectedMeetingMode(mode);
+          setMeetingAgenda(agenda);
+          setCurrentScreen("meeting");
+        }}
+      />
 
-            {/* スクロール領域 */}
-            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
-              
-              {/* 継承元パネル (S5要件) */}
-              <div className="flex flex-col gap-2 mb-2">
-                <div className="text-[10px] font-bold text-[var(--color-text-sub)] uppercase tracking-wider">🔗 プロンプト継承元</div>
-                
-                {/* プロジェクト継承 */}
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border-inner)] rounded overflow-hidden">
-                  <button 
-                    onClick={() => setShowInheritedProject(!showInheritedProject)}
-                    className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-[var(--color-bg)] transition-colors flex justify-between items-center"
-                  >
-                    <span>🌱 プロジェクト価値観: {projects.find(p => p.id === selectedProjectId)?.name || ""}</span>
-                    <span>{showInheritedProject ? "▼" : "▶"}</span>
-                  </button>
-                  {showInheritedProject && (
-                    <div className="px-3 pb-3 text-xs text-[var(--color-text-sub)] whitespace-pre-wrap border-t border-[var(--color-border-inner)] pt-2">
-                      {projects.find(p => p.id === selectedProjectId)?.values || "未設定"}
-                    </div>
-                  )}
-                </div>
-
-                {/* 部署継承 */}
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border-inner)] rounded overflow-hidden">
-                  <button 
-                    onClick={() => setShowInheritedDept(!showInheritedDept)}
-                    className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-[var(--color-bg)] transition-colors flex justify-between items-center"
-                  >
-                    <span>📁 部署方針: {editingMember?.dept_name}</span>
-                    <span>{showInheritedDept ? "▼" : "▶"}</span>
-                  </button>
-                  {showInheritedDept && (
-                    <div className="px-3 pb-3 text-xs text-[var(--color-text-sub)] whitespace-pre-wrap border-t border-[var(--color-border-inner)] pt-2">
-                      {editingMember?.department_prompt || "未設定"}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--color-text-sub)]">名前</label>
-                <input 
-                  type="text" 
-                  value={editMemberName} 
-                  onChange={e => setEditMemberName(e.target.value)} 
-                  className="input-wood text-sm w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--color-text-sub)]">専門領域・役割</label>
-                <input 
-                  type="text" 
-                  value={editMemberRole} 
-                  onChange={e => setEditMemberRole(e.target.value)} 
-                  className="input-wood text-sm w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--color-text-sub)]">使用AIモデル</label>
-                <select
-                  value={editMemberModel}
-                  onChange={e => setEditMemberModel(e.target.value)}
-                  className="w-full p-2 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] text-sm bg-white text-[var(--color-text)]"
-                >
-                  <option value="">選択してください...</option>
-                  {["OpenAI", "Anthropic", "Gemini"].map(prov => {
-                    const provModels = availableModels.filter(m => m.provider === prov);
-                    if (provModels.length === 0) return null;
-                    return (
-                      <optgroup key={prov} label={prov}>
-                        {provModels.map(model => (
-                          <option key={model.id} value={model.model_id}>
-                            {model.display_name} ({model.model_id})
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--color-text-sub)]">個人人格プロンプト (最内層)</label>
-                <textarea 
-                  value={editMemberPersonality} 
-                  onChange={e => setEditMemberPersonality(e.target.value)} 
-                  rows={6}
-                  className="w-full p-3 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-xs leading-relaxed bg-white text-[var(--color-text)] resize-y"
-                  placeholder="冷静沈着で丁寧な敬語。曖昧な表現に対して極めて敏感..."
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 mt-4">
-                <label className="text-xs font-bold text-[var(--color-text-sub)] flex items-center gap-1">
-                  <span>🌱</span> 成長日誌（会議からの自動学習・ルール）
-                </label>
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border-inner)] rounded-lg p-3 flex flex-col gap-2 min-h-[100px]">
-                  {memberLearnings.length === 0 ? (
-                    <p className="text-xs text-[var(--color-text-sub)] italic text-center py-4">まだ学習記録はありません。</p>
-                  ) : (
-                    memberLearnings.map(log => (
-                      <div key={log.id} className="bg-white p-2 rounded border border-[var(--color-border-inner)] text-xs flex justify-between items-start gap-2 shadow-sm">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[var(--color-text)] whitespace-pre-wrap">{log.content}</p>
-                          <p className="text-[10px] text-gray-400 mt-1">{new Date(log.created_at).toLocaleString()}</p>
-                        </div>
-                        <button 
-                          onClick={async () => {
-                            if (!dbInstance || !confirm("この学習記録を削除してもよろしいですか？")) return;
-                            try {
-                              await dbInstance!.execute("DELETE FROM member_learnings WHERE id = ?", [log.id]);
-                              setMemberLearnings(prev => prev.filter(p => p.id !== log.id));
-                            } catch(e) { console.error(e); }
-                          }}
-                          className="text-red-500 hover:text-red-700 font-bold shrink-0 text-xs px-2 py-1 bg-red-50 rounded"
-                        >
-                          削除
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* アクションボタン */}
-            <div className="flex justify-end gap-2 border-t-2 border-[var(--color-border-inner)] pt-3 shrink-0">
-              <button 
-                onClick={() => setEditingMember(null)}
-                className="btn-secondary"
-              >
-                キャンセル
-              </button>
-              <button 
-                onClick={async () => {
-                  if (!editMemberName.trim()) {
-                    alert("名前を入力してください。");
-                    return;
-                  }
-                  try {
-                    const nowStr = new Date().toISOString();
-                    await dbInstance?.execute(
-                      "UPDATE members SET name = ?, role = ?, personality_prompt = ?, ai_model = ?, updated_at = ? WHERE id = ?",
-                      [editMemberName, editMemberRole, editMemberPersonality, editMemberModel, nowStr, editingMember.id]
-                    );
-                    setEditingMember(null);
-                    await fetchMembers(); // メンバー一覧をリロード
-                  } catch (err) {
-                    console.error("Failed to update member", err);
-                    alert("更新に失敗しました。");
-                  }
-                }}
-                className="btn-primary"
-              >
-                💾 保存する
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
