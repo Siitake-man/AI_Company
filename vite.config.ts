@@ -58,11 +58,11 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
-    hmr: host
+    host: process.env.TAURI_DEV_HOST || false,
+    hmr: process.env.TAURI_DEV_HOST
       ? {
           protocol: "ws",
-          host,
+          host: process.env.TAURI_DEV_HOST,
           port: 1421,
         }
       : undefined,
