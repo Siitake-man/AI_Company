@@ -6,8 +6,8 @@ type ApiKeySetupScreenProps = {
   saveErrors: { [key in ProviderType]?: string };
   inputKeys: { [key in ProviderType]?: string };
   setInputKeys: React.Dispatch<React.SetStateAction<{ [key in ProviderType]?: string }>>;
-  handleSaveKey: (provider: ProviderType) => Promise<void>;
-  handleDeleteKey: (provider: ProviderType) => Promise<void>;
+  handleSaveKey: (provider: ProviderType) => Promise<boolean>;
+  handleDeleteKey: (provider: ProviderType) => Promise<boolean | void>;
   setCurrentScreen: (screen: "home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting" | "summary") => void;
 };
 

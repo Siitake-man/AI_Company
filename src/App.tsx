@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import { getMergedSystemPrompt } from "./lib/promptMerger";
 import {
@@ -552,6 +552,9 @@ function App() {
 
         // 2. セキュリティ金庫（APIキー）の登録状態を確認
         await refreshApiKeysStatus();
+        if (currentScreen === "apiKeySetup") {
+          setCurrentScreen("home");
+        }
 
         // 3. APIキーが登録されているプロバイダーの最新モデルをAPIからリアルタイム同期
         await syncAllAvailableModels(db);
@@ -597,7 +600,7 @@ function App() {
     // 初期起動時は apiKeySetup を表示しても良いが、今回は強制スキップしてホームにする
     // ユーザーからの報告「ホーム画面が消えた」に対応するため、ホームをデフォルトにする
     if (currentScreen === "apiKeySetup") {
-      setCurrentScreen(hasAny ? "home" : "home"); 
+      setCurrentScreen("home");
     }
   }
 
@@ -725,7 +728,7 @@ function App() {
 
 
   // APIキーの個別保存処理
-  async function handleSaveKey(provider: ProviderType) {
+  async function handleSaveKey(provider: ProviderType): Promise<boolean> {
     try {
       setSaveErrors((prev) => ({ ...prev, [provider]: "" }));
       setSuccessMsg("");
@@ -733,7 +736,7 @@ function App() {
 
       if (!keyVal || !keyVal.trim()) {
         setSaveErrors((prev) => ({ ...prev, [provider]: "APIキーを入力してください" }));
-        return;
+        return false;
       }
 
       await saveApiKey(provider, keyVal);
@@ -746,14 +749,16 @@ function App() {
         await syncAllAvailableModels(dbInstance);
         await fetchModels();
       }
+      return true;
     } catch (err) {
       console.error(err);
       setSaveErrors((prev) => ({ ...prev, [provider]: `保存失敗: ${String(err)}` }));
+      return false;
     }
   }
 
   // APIキーの個別削除処理
-  async function handleDeleteKey(provider: ProviderType) {
+  async function handleDeleteKey(provider: ProviderType): Promise<boolean | void> {
     try {
       setSuccessMsg("");
       await deleteApiKey(provider);
@@ -762,6 +767,7 @@ function App() {
       if (dbInstance) {
         await fetchModels();
       }
+      return true;
     } catch (err) {
       console.error(err);
       alert(`削除に失敗しました: ${String(err)}`);
