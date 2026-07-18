@@ -106,7 +106,7 @@ function App() {
     [PROVIDERS.BRAVE]: false
   });
 
-  const [inputKeys, setInputKeys] = useState<Record<ProviderType, string>>({
+  const [inputKeys, setInputKeys] = useState<{ [key in ProviderType]?: string }>({
     [PROVIDERS.OPENAI]: "",
     [PROVIDERS.ANTHROPIC]: "",
     [PROVIDERS.GEMINI]: "",
@@ -114,7 +114,7 @@ function App() {
     [PROVIDERS.BRAVE]: ""
   });
 
-  const [saveErrors, setSaveErrors] = useState<Record<ProviderType, string>>({
+  const [saveErrors, setSaveErrors] = useState<{ [key in ProviderType]?: string }>({
     [PROVIDERS.OPENAI]: "",
     [PROVIDERS.ANTHROPIC]: "",
     [PROVIDERS.GEMINI]: "",
@@ -711,7 +711,7 @@ function App() {
       setSuccessMsg("");
       const keyVal = inputKeys[provider];
 
-      if (!keyVal.trim()) {
+      if (!keyVal || !keyVal.trim()) {
         setSaveErrors((prev) => ({ ...prev, [provider]: "APIキーを入力してください" }));
         return;
       }

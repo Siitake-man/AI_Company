@@ -143,7 +143,7 @@ export const HomeScreen = ({
           <div className="flex-1 flex flex-col gap-5 min-h-0 relative">
             
             {/* スクロールコンテンツ */}
-            <div style={{ flex: '1 1 0%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', paddingRight: '6px', minHeight: 0, pb: '80px' }}>
+            <div style={{ flex: '1 1 0%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', paddingRight: '6px', minHeight: 0, paddingBottom: '80px' }}>
               
               {/* [ヘッダー] プロジェクト名とエンブレムロゴ (S2モック準拠) */}
               <div className="panel-paper p-5 bg-white shadow-sm shrink-0">
