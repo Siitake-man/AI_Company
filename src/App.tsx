@@ -728,7 +728,7 @@ function App() {
 
 
   // APIキーの個別保存処理
-  async function handleSaveKey(provider: ProviderType) {
+  async function handleSaveKey(provider: ProviderType): Promise<boolean> {
     try {
       setSaveErrors((prev) => ({ ...prev, [provider]: "" }));
       setSuccessMsg("");
@@ -736,7 +736,7 @@ function App() {
 
       if (!keyVal || !keyVal.trim()) {
         setSaveErrors((prev) => ({ ...prev, [provider]: "APIキーを入力してください" }));
-        return;
+        return false;
       }
 
       await saveApiKey(provider, keyVal);
@@ -749,14 +749,16 @@ function App() {
         await syncAllAvailableModels(dbInstance);
         await fetchModels();
       }
+      return true;
     } catch (err) {
       console.error(err);
       setSaveErrors((prev) => ({ ...prev, [provider]: `保存失敗: ${String(err)}` }));
+      return false;
     }
   }
 
   // APIキーの個別削除処理
-  async function handleDeleteKey(provider: ProviderType) {
+  async function handleDeleteKey(provider: ProviderType): Promise<boolean | void> {
     try {
       setSuccessMsg("");
       await deleteApiKey(provider);
@@ -765,6 +767,7 @@ function App() {
       if (dbInstance) {
         await fetchModels();
       }
+      return true;
     } catch (err) {
       console.error(err);
       alert(`削除に失敗しました: ${String(err)}`);

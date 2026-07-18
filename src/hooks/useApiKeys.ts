@@ -43,7 +43,7 @@ export function useApiKeys(onKeyUpdated: () => Promise<void>) {
     return !!(openaiKey || anthropicKey || geminiKey);
   }, []);
 
-  const handleSaveKey = useCallback(async (provider: ProviderType) => {
+  const handleSaveKey = useCallback(async (provider: ProviderType): Promise<boolean> => {
     try {
       setSaveErrors((prev) => ({ ...prev, [provider]: "" }));
       setSuccessMsg("");
@@ -51,7 +51,7 @@ export function useApiKeys(onKeyUpdated: () => Promise<void>) {
 
       if (!keyVal || !keyVal.trim()) {
         setSaveErrors((prev) => ({ ...prev, [provider]: "APIキーを入力してください" }));
-        return;
+        return false;
       }
 
       await saveApiKey(provider, keyVal);
@@ -60,9 +60,11 @@ export function useApiKeys(onKeyUpdated: () => Promise<void>) {
 
       await refreshApiKeysStatus();
       await onKeyUpdated();
+      return true;
     } catch (err) {
       console.error(err);
       setSaveErrors((prev) => ({ ...prev, [provider]: `保存失敗: ${String(err)}` }));
+      return false;
     }
   }, [inputKeys, refreshApiKeysStatus, onKeyUpdated]);
 
@@ -73,6 +75,7 @@ export function useApiKeys(onKeyUpdated: () => Promise<void>) {
       setSuccessMsg(`${provider.toUpperCase()} のAPIキーを金庫から削除しました。`);
       await refreshApiKeysStatus();
       await onKeyUpdated();
+      return true;
     } catch (err) {
       console.error(err);
       alert(`削除に失敗しました: ${String(err)}`);

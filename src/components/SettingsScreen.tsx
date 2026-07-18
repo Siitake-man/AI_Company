@@ -10,8 +10,8 @@ type SettingsScreenProps = {
   setSaveErrors: React.Dispatch<React.SetStateAction<{ [key in ProviderType]?: string }>>;
   inputKeys: { [key in ProviderType]?: string };
   setInputKeys: React.Dispatch<React.SetStateAction<{ [key in ProviderType]?: string }>>;
-  handleSaveKey: (provider: ProviderType) => Promise<void>;
-  handleDeleteKey: (provider: ProviderType) => Promise<void>;
+  handleSaveKey: (provider: ProviderType) => Promise<boolean>;
+  handleDeleteKey: (provider: ProviderType) => Promise<boolean | void>;
   modelSyncStatus: string;
   availableModels: any[];
   newModelProvider: string;
@@ -146,7 +146,7 @@ export const SettingsScreen = React.memo(({
                 <input type="password" placeholder={`${pName}のAPIキー`} value={inputValue} onChange={(e) => setInputKeys(prev => ({ ...prev, [provider]: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white font-mono shadow-inner" />
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: false }))} className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-700 rounded-md text-xs font-bold hover:bg-gray-200 transition-colors">キャンセル</button>
-                  <button onClick={async () => { await handleSaveKey(provider); if (apiKeysStatus[provider]) setEditingProvider(prev => ({ ...prev, [provider]: false })); }} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm transition-colors">保存</button>
+                  <button onClick={async () => { const success = await handleSaveKey(provider); if (success) setEditingProvider(prev => ({ ...prev, [provider]: false })); }} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm transition-colors">保存</button>
                 </div>
                 {error && <p className="text-[11px] text-red-600 font-semibold">{error}</p>}
               </div>
@@ -261,7 +261,7 @@ export const SettingsScreen = React.memo(({
                 <input type="password" placeholder={`${pName}のAPIキー`} value={inputValue} onChange={(e) => setInputKeys(prev => ({ ...prev, [provider]: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white font-mono shadow-inner" />
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: false }))} className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-700 rounded-md text-xs font-bold hover:bg-gray-200 transition-colors">キャンセル</button>
-                  <button onClick={async () => { await handleSaveKey(provider); if (apiKeysStatus[provider]) setEditingProvider(prev => ({ ...prev, [provider]: false })); }} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm transition-colors">保存</button>
+                  <button onClick={async () => { const success = await handleSaveKey(provider); if (success) setEditingProvider(prev => ({ ...prev, [provider]: false })); }} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm transition-colors">保存</button>
                 </div>
                 {error && <p className="text-[11px] text-red-600 font-semibold">{error}</p>}
               </div>
@@ -295,7 +295,7 @@ export const SettingsScreen = React.memo(({
                                   <input type="password" placeholder="キーを入力" value={inputVal} onChange={(e) => setInputKeys((prev) => ({ ...prev, [provider]: e.target.value }))} className="w-full p-2 border border-gray-300 rounded-md text-sm bg-white font-mono shadow-inner" />
                                   <div className="flex gap-2 justify-end">
                                     <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: false }))} className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-700 rounded-md text-xs font-bold hover:bg-gray-200 transition-colors">キャンセル</button>
-                                    <button onClick={async () => { await handleSaveKey(provider); if (apiKeysStatus[provider]) setEditingProvider(prev => ({ ...prev, [provider]: false })); }} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm transition-colors">保存</button>
+                                    <button onClick={async () => { const success = await handleSaveKey(provider); if (success) setEditingProvider(prev => ({ ...prev, [provider]: false })); }} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm transition-colors">保存</button>
                                   </div>
                                   {error && <p className="text-[11px] text-red-600 font-semibold">{error}</p>}
                                 </div>
