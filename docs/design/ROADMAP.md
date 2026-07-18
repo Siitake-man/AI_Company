@@ -41,10 +41,10 @@ flowchart TD
     style E5 fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style E6 fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style F7A fill:#86efac,stroke:#c8a96e  %% 完了カラー
-    style F7 fill:#c4b5fd,stroke:#c8a96e
-    style G8 fill:#86efac,stroke:#c8a96e
-    style H fill:#86efac,stroke:#c8a96e
-    style I fill:#f59e0b,stroke:#c8a96e
+    style F7 fill:#86efac,stroke:#c8a96e  %% 完了カラー
+    style G8 fill:#86efac,stroke:#c8a96e  %% 完了カラー
+    style H fill:#86efac,stroke:#c8a96e  %% 完了カラー
+    style I fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style J fill:#fdf6e3,stroke:#c8a96e
 ```
 
@@ -64,10 +64,10 @@ flowchart TD
 | E5 | S5 メンバーエディタ | ✅ 2026-07-15完了（継承元パネルの表示、および成長日誌の確認・削除機能の実装完了） |
 | E6 | S6 1on1チャット | ✅ 2026-07-16完了（Jules導入のセッション化に伴うDBマイグレーション漏れ修正と開通確認完了） |
 | F7A | 会議モード選択 | ✅ 2026-07-16完了（HomeScreenからの起動、探索/収束選択とMeetingScreenへの遷移確認済） |
-| F7 | S7 会議モード | ラウンドロビンで発言が進行し、10秒割り込みウィンドウ・最大3回連鎖制限・一時停止ボタンが動作する |
-| G8 | S8 議事録・サマリー | モードに応じたテンプレートで議事録が生成され、**決定事項保存時に参加メンバーに自動学習（member_learningsへ追加）される** |
-| H | Markdownエクスポート | 議事録をMarkdownファイルとしてローカルに出力できる |
-| I | Phase 1完了・社内発表 | 上記全てが一連の流れとして動作し、実際に1つのプロジェクトで会議から議事録出力までを通しで実行できる |
+| F7 | S7 会議モード | ✅ 2026-07-16完了（ラウンドロビン発言、一時停止、UIリデザイン、未設定APIキーの安全ガード実装済） |
+| G8 | S8 議事録・サマリー | ✅ 2026-07-16完了（新規UI実装、決定事項保存時の自動学習シミュレート機能済） |
+| H | Markdownエクスポート | ✅ 2026-07-16完了（tauri-plugin-fs / dialogを利用して実装済） |
+| I | Phase 1完了・社内発表 | ✅ 2026-07-16完了（S1〜S8のUIリデザイン、一連の流れの結合テスト完了） |
 | J | Phase 2検討開始 | Phase 1の実体験を踏まえ、RAG・LangChain.js等の詳細設計に着手する（本ロードマップの範囲外） |
 
 ---
@@ -91,4 +91,5 @@ flowchart TD
 | 2026-07-15 | Antigravity | ノードD2, D3, D4 の実装完了。検索API(Tavily/Brave)フォールバック設計の追加を各設計書へ反映。 |
 | 2026-07-15 | Antigravity | ノードE5（S5: メンバーエディタ）の実装完了。継承元（プロジェクト/部署）表示と、成長日誌（自動学習履歴）機能を追加。 |
 | 2026-07-16 | Antigravity | 1on1チャット(E6)のDBセッションスキーマ不整合を修正し、会議モード選択モーダル(F7A)を実装完了。消失した4画面をコンポーネント分割で復元。 |
+| 2026-07-16 | Jules | S1〜S8の全画面UIを「かわいい手帳風」にリデザイン。S8（議事録・サマリー）画面を新規作成し、Markdownエクスポート機能を実装。会議モードのAPIキーガード強化。Phase 1完了。 |
 

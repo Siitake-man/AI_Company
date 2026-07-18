@@ -8,7 +8,7 @@ type ApiKeySetupScreenProps = {
   setInputKeys: React.Dispatch<React.SetStateAction<{ [key in ProviderType]?: string }>>;
   handleSaveKey: (provider: ProviderType) => Promise<void>;
   handleDeleteKey: (provider: ProviderType) => Promise<void>;
-  setCurrentScreen: (screen: "home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting") => void;
+  setCurrentScreen: (screen: "home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting" | "summary") => void;
 };
 
 export const ApiKeySetupScreen = ({

@@ -27,7 +27,7 @@ type SettingsScreenProps = {
   profileSaveSuccess: string;
   profileSaveError: string;
   handleSaveProfile: () => Promise<void>;
-  setCurrentScreen: (screen: "home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting") => void;
+  setCurrentScreen: (screen: "home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting" | "summary") => void;
 };
 
 export const SettingsScreen = ({
