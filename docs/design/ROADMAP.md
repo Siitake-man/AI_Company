@@ -94,3 +94,8 @@ flowchart TD
 | 2026-07-16 | Jules | S1〜S8の全画面UIを「かわいい手帳風」にリデザイン。S8（議事録・サマリー）画面を新規作成し、Markdownエクスポート機能を実装。会議モードのAPIキーガード強化。Phase 1完了。 |
 | 2026-07-18 | Antigravity | 設定画面(S9)の2ペイン化およびタブ統合。Tauri v2の厳格なパーミッション（dialog/fs）不足によるAPIキーテスト・サマリー保存機能の不具合を解消。グローバルSKILL（コンテキスト自動生成）を作成。 |
 
+
+## Phase 2 Preparations (Node J)
+- **RAG Implementation**: Preparation for RAG.
+- **LangChain.js**: Preparation for LangChain.js.
+- **Prompt Merging**: Deeper prompt merge logic.

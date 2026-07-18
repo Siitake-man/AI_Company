@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ProviderType, PROVIDERS } from "../lib/apiKeyStore";
 import { message } from "@tauri-apps/plugin-dialog";
 
@@ -33,7 +33,7 @@ type SettingsScreenProps = {
   setSummaryModel: (val: string) => void;
 };
 
-export const SettingsScreen = ({
+export const SettingsScreen = React.memo(({
   apiKeysStatus,
   successMsg,
   setSuccessMsg,
@@ -125,10 +125,53 @@ export const SettingsScreen = ({
     alert(`⚡ 【${provider}】へ接続テストを実行しました: 接続成功！`);
   };
 
+
+  const providerList = useMemo(() => {
+    return (Object.keys(PROVIDERS) as Array<keyof typeof PROVIDERS>).map((key) => {
+      const provider = PROVIDERS[key];
+      const pName = provider.toUpperCase();
+      const isSaved = apiKeysStatus[provider];
+      const isEditing = editingProvider[provider];
+      const error = saveErrors[provider];
+      const inputValue = inputKeys[provider] || "";
+      return (
+        <tr key={provider}>
+          <td className="font-bold text-[#7a5c3a]">{pName}</td>
+          <td>
+            {isSaved ? <span className="mock-badge-saved">設定済み</span> : <span className="mock-badge-unsaved">未設定</span>}
+          </td>
+          <td>
+            {isEditing ? (
+              <div className="flex flex-col gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <input type="password" placeholder={`${pName}のAPIキー`} value={inputValue} onChange={(e) => setInputKeys(prev => ({ ...prev, [provider]: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white font-mono shadow-inner" />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: false }))} className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-700 rounded-md text-xs font-bold hover:bg-gray-200 transition-colors">キャンセル</button>
+                  <button onClick={async () => { await handleSaveKey(provider); if (apiKeysStatus[provider]) setEditingProvider(prev => ({ ...prev, [provider]: false })); }} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm transition-colors">保存</button>
+                </div>
+                {error && <p className="text-[11px] text-red-600 font-semibold">{error}</p>}
+              </div>
+            ) : (
+              <div className="flex gap-3 justify-center">
+                {isSaved ? (
+                  <>
+                    <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: true }))} className="px-4 py-2 bg-[var(--color-bg)] hover:bg-[var(--color-panel)] border border-gray-400 rounded-md text-xs font-bold transition-colors shadow-sm">変更する</button>
+                    <button onClick={() => handleTestConnection(pName)} className="px-4 py-2 bg-[var(--color-bg)] hover:bg-[var(--color-panel)] border border-gray-400 rounded-md text-xs font-bold transition-colors shadow-sm">テスト接続</button>
+                    <button onClick={() => handleDeleteKey(provider)} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md text-xs font-bold transition-colors" title="削除">✕</button>
+                  </>
+                ) : (
+                  <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: true }))} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold transition-colors shadow-sm">設定する</button>
+                )}
+              </div>
+            )}
+          </td>
+        </tr>
+      );
+    });
+  }, [apiKeysStatus, editingProvider, saveErrors, inputKeys, handleSaveKey, handleDeleteKey, setInputKeys]);
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* ヘッダー */}
-      <div className="panel-paper p-6 flex justify-between items-center bg-[var(--color-panel)] shrink-0 shadow-sm mb-6 mx-6 mt-4 border-2 border-[var(--color-border-inner)]">
+      <div className="panel-paper p-8 flex justify-between items-center bg-[var(--color-panel)] shrink-0 shadow-sm mb-6 mx-6 mt-4 border-2 border-[var(--color-border-inner)]">
         <h2 className="font-title text-3xl font-bold text-[#3d2b1f] flex items-center gap-3">
           <span>⚙️</span> 設定
         </h2>
@@ -142,16 +185,16 @@ export const SettingsScreen = ({
         
         {/* 左ペイン: メニュー */}
         <div className="w-64 shrink-0 flex flex-col gap-3">
-          <button onClick={() => setActiveTab("ai-api")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "ai-api" ? "bg-[#EDD9B0] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
+          <button onClick={() => setActiveTab("ai-api")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "ai-api" ? "bg-[var(--color-panel)] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
             🤖 AI・API設定
           </button>
-          <button onClick={() => setActiveTab("profile")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "profile" ? "bg-[#EDD9B0] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
+          <button onClick={() => setActiveTab("profile")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "profile" ? "bg-[var(--color-panel)] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
             👤 コアプロフィール
           </button>
-          <button onClick={() => setActiveTab("app")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "app" ? "bg-[#EDD9B0] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
+          <button onClick={() => setActiveTab("app")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "app" ? "bg-[var(--color-panel)] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
             🔔 アプリ設定
           </button>
-          <button onClick={() => setActiveTab("data")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "data" ? "bg-[#EDD9B0] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
+          <button onClick={() => setActiveTab("data")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "data" ? "bg-[var(--color-panel)] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
             🧹 データ管理
           </button>
           <div className="mt-auto text-center text-xs text-[#7a5c3a] font-bold select-none py-4 opacity-70">
@@ -197,7 +240,50 @@ export const SettingsScreen = ({
                         else if (provider === PROVIDERS.TAVILY) pName = "Tavily Search";
                         else if (provider === PROVIDERS.BRAVE) pName = "Brave Search";
 
-                        return (
+
+  const providerList = useMemo(() => {
+    return (Object.keys(PROVIDERS) as Array<keyof typeof PROVIDERS>).map((key) => {
+      const provider = PROVIDERS[key];
+      const pName = provider.toUpperCase();
+      const isSaved = apiKeysStatus[provider];
+      const isEditing = editingProvider[provider];
+      const error = saveErrors[provider];
+      const inputValue = inputKeys[provider] || "";
+      return (
+        <tr key={provider}>
+          <td className="font-bold text-[#7a5c3a]">{pName}</td>
+          <td>
+            {isSaved ? <span className="mock-badge-saved">設定済み</span> : <span className="mock-badge-unsaved">未設定</span>}
+          </td>
+          <td>
+            {isEditing ? (
+              <div className="flex flex-col gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <input type="password" placeholder={`${pName}のAPIキー`} value={inputValue} onChange={(e) => setInputKeys(prev => ({ ...prev, [provider]: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white font-mono shadow-inner" />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: false }))} className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-700 rounded-md text-xs font-bold hover:bg-gray-200 transition-colors">キャンセル</button>
+                  <button onClick={async () => { await handleSaveKey(provider); if (apiKeysStatus[provider]) setEditingProvider(prev => ({ ...prev, [provider]: false })); }} className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm transition-colors">保存</button>
+                </div>
+                {error && <p className="text-[11px] text-red-600 font-semibold">{error}</p>}
+              </div>
+            ) : (
+              <div className="flex gap-3 justify-center">
+                {isSaved ? (
+                  <>
+                    <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: true }))} className="px-4 py-2 bg-[var(--color-bg)] hover:bg-[var(--color-panel)] border border-gray-400 rounded-md text-xs font-bold transition-colors shadow-sm">変更する</button>
+                    <button onClick={() => handleTestConnection(pName)} className="px-4 py-2 bg-[var(--color-bg)] hover:bg-[var(--color-panel)] border border-gray-400 rounded-md text-xs font-bold transition-colors shadow-sm">テスト接続</button>
+                    <button onClick={() => handleDeleteKey(provider)} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md text-xs font-bold transition-colors" title="削除">✕</button>
+                  </>
+                ) : (
+                  <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: true }))} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold transition-colors shadow-sm">設定する</button>
+                )}
+              </div>
+            )}
+          </td>
+        </tr>
+      );
+    });
+  }, [apiKeysStatus, editingProvider, saveErrors, inputKeys, handleSaveKey, handleDeleteKey, setInputKeys]);
+  return (
                           <tr key={provider}>
                             <td className="font-bold text-[#3d2b1f] align-middle">{pName}</td>
                             <td className="text-center align-middle">
@@ -217,8 +303,8 @@ export const SettingsScreen = ({
                                 <div className="flex gap-3 justify-center">
                                   {isSaved ? (
                                     <>
-                                      <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: true }))} className="px-4 py-2 bg-[#F6EDDC] hover:bg-[#EDD9B0] border border-gray-400 rounded-md text-xs font-bold transition-colors shadow-sm">変更する</button>
-                                      <button onClick={() => handleTestConnection(pName)} className="px-4 py-2 bg-[#F6EDDC] hover:bg-[#EDD9B0] border border-gray-400 rounded-md text-xs font-bold transition-colors shadow-sm">テスト接続</button>
+                                      <button onClick={() => setEditingProvider(prev => ({ ...prev, [provider]: true }))} className="px-4 py-2 bg-[var(--color-bg)] hover:bg-[var(--color-panel)] border border-gray-400 rounded-md text-xs font-bold transition-colors shadow-sm">変更する</button>
+                                      <button onClick={() => handleTestConnection(pName)} className="px-4 py-2 bg-[var(--color-bg)] hover:bg-[var(--color-panel)] border border-gray-400 rounded-md text-xs font-bold transition-colors shadow-sm">テスト接続</button>
                                       <button onClick={() => handleDeleteKey(provider)} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md text-xs font-bold transition-colors" title="削除">✕</button>
                                     </>
                                   ) : (
@@ -237,7 +323,7 @@ export const SettingsScreen = ({
 
               <div className="grid grid-cols-2 gap-8">
                 {/* AIモデル一括適用セクション */}
-                <section className="bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                <section className="bg-gray-50/50 p-8 rounded-xl border border-gray-100">
                   <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-200 pb-2 mb-3">🤖 AIモデル一括適用</h3>
                   <p className="text-xs text-gray-600 mb-4 leading-relaxed">全AI社員が会議や1on1で使用するLLMモデルを一括で変更します。</p>
                   
@@ -262,7 +348,7 @@ export const SettingsScreen = ({
                 </section>
 
                 {/* サマリーモデルセクション */}
-                <section className="bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                <section className="bg-gray-50/50 p-8 rounded-xl border border-gray-100">
                   <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-200 pb-2 mb-3">📝 サマリーモデル</h3>
                   <p className="text-xs text-gray-600 mb-4 leading-relaxed">会議全体の議事録サマリーを生成する際に優先して利用するモデルを選択します。コンテキストウィンドウが大きく、要約に長けたモデルをおすすめします。</p>
                   
@@ -280,7 +366,7 @@ export const SettingsScreen = ({
           )}
 
           {activeTab === "profile" && (
-            <div className="flex flex-col gap-4 h-full">
+            <div className="flex flex-col gap-6 h-full">
               <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-100 pb-2">👤 ユーザー・コアプロフィール (第1層)</h3>
               <p className="text-xs text-gray-600 mb-2">このプロフィールは全AI社員のシステムプロンプトの最上層にマージされます。あなたの価値観、目標、制約条件などを記述してください。</p>
               
@@ -296,7 +382,7 @@ export const SettingsScreen = ({
           )}
 
           {activeTab === "app" && (
-            <div className="flex flex-col gap-4 h-full">
+            <div className="flex flex-col gap-6 h-full">
               <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-100 pb-2">🔔 アプリ設定</h3>
               <div className="flex flex-col gap-4 max-w-md mt-2">
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
@@ -316,7 +402,7 @@ export const SettingsScreen = ({
           )}
 
           {activeTab === "data" && (
-            <div className="flex flex-col gap-4 h-full">
+            <div className="flex flex-col gap-6 h-full">
               <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-100 pb-2">🧹 データ管理</h3>
               <div className="flex flex-col gap-3 max-w-md mt-2">
                 <button onClick={() => alert("全データベース情報をJSONとしてエクスポートします...")} className="btn-secondary justify-center py-3 font-bold"><span>📤</span> 全データをエクスポート (JSON)</button>
@@ -332,4 +418,4 @@ export const SettingsScreen = ({
       </div>
     </div>
   );
-};
+});

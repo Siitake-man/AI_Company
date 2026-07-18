@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 type HomeScreenProps = {
   dbInstance: any;
@@ -17,7 +17,7 @@ type HomeScreenProps = {
   onViewPastSummary: (summaryText: string, agenda: string, mode: any) => void;
 };
 
-export const HomeScreen = ({
+export const HomeScreen = React.memo(({
   dbInstance,
   projects,
   selectedProjectId,
@@ -433,4 +433,4 @@ export const HomeScreen = ({
       )}
     </div>
   );
-};
+});

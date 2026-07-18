@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import { getMergedSystemPrompt } from "./lib/promptMerger";
 import {
@@ -552,6 +552,9 @@ function App() {
 
         // 2. セキュリティ金庫（APIキー）の登録状態を確認
         await refreshApiKeysStatus();
+        if (currentScreen === "apiKeySetup") {
+          setCurrentScreen("home");
+        }
 
         // 3. APIキーが登録されているプロバイダーの最新モデルをAPIからリアルタイム同期
         await syncAllAvailableModels(db);
@@ -597,7 +600,7 @@ function App() {
     // 初期起動時は apiKeySetup を表示しても良いが、今回は強制スキップしてホームにする
     // ユーザーからの報告「ホーム画面が消えた」に対応するため、ホームをデフォルトにする
     if (currentScreen === "apiKeySetup") {
-      setCurrentScreen(hasAny ? "home" : "home"); 
+      setCurrentScreen("home");
     }
   }
 
