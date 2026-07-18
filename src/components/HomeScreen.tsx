@@ -14,6 +14,7 @@ type HomeScreenProps = {
   setCreateProjectError: (err: string) => void;
   fetchProjects: () => Promise<void>;
   onStartMeetingClick: () => void;
+  onViewPastSummary: (summaryText: string, agenda: string, mode: any) => void;
 };
 
 export const HomeScreen = ({
@@ -29,23 +30,26 @@ export const HomeScreen = ({
   setCurrentScreen,
   setCreateProjectError,
   fetchProjects,
-  onStartMeetingClick
+  onStartMeetingClick,
+  onViewPastSummary,
 }: HomeScreenProps) => {
   // プロジェクト編集用のローカル状態
   const [isEditingProject, setIsEditingProject] = useState<boolean>(false);
   const [editProjectPurpose, setEditProjectPurpose] = useState<string>("");
   const [editProjectValues, setEditProjectValues] = useState<string>("");
 
-  // 会議統計情報のローカル状態 (モック値 or 簡易取得用)
+  // 会議統計情報と過去の会議履歴のローカル状態
   const [meetingStats, setMeetingStats] = useState<{ count: number; lastDate: string }>({ count: 0, lastDate: "なし" });
+  const [pastMeetings, setPastMeetings] = useState<any[]>([]);
 
   const project = projects.find((p) => p.id === selectedProjectId);
 
-  // 会議回数や最終会議日の取得
+  // 会議統計情報および過去の会議履歴の取得
   useEffect(() => {
-    const fetchMeetingStats = async () => {
+    const fetchMeetingData = async () => {
       if (!dbInstance || !selectedProjectId) return;
       try {
+        // 会議統計の取得
         const result = await dbInstance.select(
           "SELECT COUNT(*) as count FROM meetings WHERE project_id = ?",
           [selectedProjectId]
@@ -65,11 +69,22 @@ export const HomeScreen = ({
           count: result[0]?.count || 0,
           lastDate: lastDateStr
         });
+
+        // 過去の会議履歴（サマリー付き）を取得
+        const past = await dbInstance.select(
+          `SELECT m.id, m.mode, m.started_at, s.decisions as summary_text
+           FROM meetings m
+           JOIN meeting_summaries s ON m.id = s.meeting_id
+           WHERE m.project_id = ? AND m.status = '終了'
+           ORDER BY m.id DESC`,
+          [selectedProjectId]
+        );
+        setPastMeetings(past || []);
       } catch (e) {
-        console.error("Failed to fetch meeting stats", e);
+        console.error("Failed to fetch meeting data", e);
       }
     };
-    fetchMeetingStats();
+    fetchMeetingData();
   }, [dbInstance, selectedProjectId, projectMembers]);
 
   // 編集モードに入る際の初期化
@@ -197,6 +212,44 @@ export const HomeScreen = ({
                 </div>
               </div>
 
+              {/* 📋 過去の議事録（サマリー）履歴一覧 */}
+              <div className="panel-paper p-4 bg-white/90 border-2 border-[var(--color-border-inner)] flex flex-col gap-3 shadow-sm shrink-0">
+                <span className="text-xs font-bold text-[var(--color-text-sub)] flex items-center gap-1.5 border-b border-dashed border-[var(--color-border-inner)] pb-1.5">
+                  <span>📖</span> 過去の議事録サマリー履歴 ({pastMeetings.length}件)
+                </span>
+                {pastMeetings.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">過去の会議サマリーはまだありません。</p>
+                ) : (
+                  <div className="max-h-36 overflow-y-auto flex flex-col gap-2 pr-1" style={{ scrollbarWidth: 'thin' }}>
+                    {pastMeetings.map((meet) => {
+                      const mDate = new Date(meet.started_at).toLocaleString("ja-JP", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      });
+                      return (
+                        <div
+                          key={meet.id}
+                          onClick={() => onViewPastSummary(meet.summary_text, "過去の会議", meet.mode)}
+                          className="border border-[var(--color-border-inner)] rounded-lg p-2.5 bg-amber-50/10 hover:bg-amber-100/50 cursor-pointer flex justify-between items-center transition-all shadow-xs"
+                        >
+                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                            <span className="text-xs font-bold text-[#3d2b1f] truncate">
+                              {meet.mode === "exploration" ? "💡 探索会議" : "🎯 収束会議"} (会議 ID: {meet.id})
+                            </span>
+                            <span className="text-[10px] text-gray-400">{mDate}</span>
+                          </div>
+                          <span className="text-[10px] bg-amber-100 text-[#8B5A2B] border border-amber-200 px-3 py-1 rounded-md font-bold shrink-0 hover:bg-amber-200 transition-colors shadow-xs">
+                            サマリーを見る 🔍
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* [下部] メンバータロットカード (横スライド型) */}
               <div className="mt-1 flex-1 flex flex-col min-h-0">
                 <h3 className="font-bold text-md mb-3 flex items-center gap-1.5 text-[#3d2b1f]">
@@ -295,19 +348,18 @@ export const HomeScreen = ({
                 </div>
               </div>
 
-            </div>
+              {/* 会議を始めるボタンをコンテンツの最下部に移動し、レイアウト整合性を改善 */}
+              <div className="flex justify-center mt-6 mb-8 shrink-0">
+                <button
+                  onClick={onStartMeetingClick}
+                  className="btn-primary text-md py-3.5 px-10 rounded-xl shadow-md hover:scale-[1.02] transition-transform flex items-center gap-2.5 font-bold"
+                >
+                  <span className="text-xl">🎙️</span>
+                  <span>このプロジェクトの会議を始める</span>
+                </button>
+              </div>
 
-            {/* [右下] 会議を始めるボタンの浮遊配置 (S2モック準拠) */}
-            <div className="absolute bottom-5 right-5 z-20 shrink-0">
-              <button
-                onClick={onStartMeetingClick}
-                className="btn-primary text-md py-3.5 px-8 rounded-xl shadow-lg hover:scale-105 transition-transform flex items-center gap-2"
-              >
-                <span className="text-xl">🎙️</span>
-                <span>会議を始める</span>
-              </button>
             </div>
-
           </div>
         ) : (
           <div className="panel-paper p-10 flex flex-col items-center justify-center h-full gap-4 text-[var(--color-text-sub)] bg-[#F5E6C8]">

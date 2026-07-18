@@ -8,6 +8,13 @@
     "opener:default",
     "sql:allow-load",
     "sql:allow-execute",
-    "sql:allow-select"
+    "sql:allow-select",
+    "dialog:default",
+    "fs:default",
+    "fs:allow-write-text-file",
+    "fs:allow-home-write-recursive",
+    "fs:allow-desktop-write-recursive",
+    "fs:allow-download-write-recursive",
+    "fs:allow-document-write-recursive"
   ]
 }

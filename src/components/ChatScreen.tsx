@@ -3,6 +3,7 @@ import Database from "@tauri-apps/plugin-sql";
 import { getMergedSystemPrompt } from "../lib/promptMerger";
 import { getApiKey, PROVIDERS, ProviderType } from "../lib/apiKeyStore";
 import { parseApiError, calculateCost } from "../lib/utils";
+import { renderMarkdown } from "../lib/markdownRenderer";
 
 
 type ChatScreenProps = {
@@ -179,8 +180,8 @@ export const ChatScreen = ({
                          })()}
                       </div>
                     )}
-                    <div className={`px-4 py-2 rounded-2xl max-w-[70%] text-sm ${msg.role === 'user' ? 'bg-[var(--color-bg)] border-2 border-[var(--color-border-inner)] text-[var(--color-text)] rounded-br-sm' : 'bg-white border-2 border-[var(--color-border-inner)] text-[var(--color-text)] rounded-bl-sm shadow-sm'}`}>
-                      {msg.content}
+                    <div className={`px-4 py-2.5 rounded-2xl max-w-[75%] text-sm ${msg.role === 'user' ? 'bg-[var(--color-bg)] border-2 border-[var(--color-border-inner)] text-[var(--color-text)] rounded-br-sm' : 'bg-white border-2 border-[var(--color-border-inner)] text-[var(--color-text)] rounded-bl-sm shadow-sm'}`}>
+                      {msg.role === 'user' ? msg.content : renderMarkdown(msg.content)}
                     </div>
                   </div>
                 ))

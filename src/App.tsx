@@ -19,6 +19,8 @@ import { PromptTestScreen } from "./components/PromptTestScreen";
 import { CreateProjectScreen } from "./components/CreateProjectScreen";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { ApiKeySetupScreen } from "./components/ApiKeySetupScreen";
+import { SummaryScreen } from "./components/SummaryScreen";
+
 
 
 // 部署・メンバープリセット定義
@@ -82,13 +84,23 @@ function App() {
   const [generateError, setGenerateError] = useState<string>("");
 
   // 画面遷移・APIキー関連の状態
-  const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting">("apiKeySetup");
+  const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting" | "summary">("apiKeySetup");
   const [chatMemberId, setChatMemberId] = useState<number | null>(null);
   const [isMeetingModeModalOpen, setIsMeetingModeModalOpen] = useState<boolean>(false);
   const [selectedMeetingMode, setSelectedMeetingMode] = useState<MeetingMode | null>(null);
   const [meetingAgenda, setMeetingAgenda] = useState<string>("");
   const [chatSessionId, setChatSessionId] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<{id: number, role: "user" | "assistant", content: string, created_at: string}[]>([]);
+  // S8: 会議サマリー画面用の状態
+  const [meetingSummaryText, setMeetingSummaryText] = useState<string>("");
+  // S8: 会議で発生したコスト・トークンの状態
+  const [meetingCostStats, setMeetingCostStats] = useState<{
+    promptTokens: number;
+    completionTokens: number;
+    totalCost: number;
+  }>({ promptTokens: 0, completionTokens: 0, totalCost: 0 });
+  // S8: サマリー生成用モデルの設定状態
+  const [summaryModel, setSummaryModel] = useState<string>("gemini-2.5-flash");
 
 
 
@@ -520,14 +532,22 @@ function App() {
           );
         }
 
+        // summary_model カラムを users テーブルに追加 (もし無ければ)
+        try {
+          await db.execute("ALTER TABLE users ADD COLUMN summary_model TEXT DEFAULT 'gemini-2.5-flash'");
+        } catch (e) {
+          // すでにカラムがあればエラーになるので無視
+        }
+
         // 1.5. ユーザーコアプロフィールの読み込み
-        const userResult = await db.select<{ core_profile: string }[]>(
-          "SELECT core_profile FROM users WHERE id = 1"
+        const userResult = await db.select<{ core_profile: string, summary_model: string }[]>(
+          "SELECT core_profile, summary_model FROM users WHERE id = 1"
         );
         if (userResult && userResult.length > 0) {
           const profile = userResult[0].core_profile || "";
           setCoreProfile(profile);
           setEditCoreProfile(profile);
+          setSummaryModel(userResult[0].summary_model || "gemini-2.5-flash");
         }
 
         // 2. セキュリティ金庫（APIキー）の登録状態を確認
@@ -867,6 +887,13 @@ function App() {
           onStartMeetingClick={() => {
             setIsMeetingModeModalOpen(true);
           }}
+          onViewPastSummary={(summaryText: string, agenda: string, mode: any) => {
+            setMeetingSummaryText(summaryText);
+            setMeetingCostStats(undefined as any); // 過去ログ表示時はコスト統計をリセット
+            setMeetingAgenda(agenda);
+            setSelectedMeetingMode(mode);
+            setCurrentScreen("summary");
+          }}
         />
       )}
 
@@ -928,6 +955,23 @@ function App() {
           getAvatarPath={getAvatarPath}
           getEmojiForRole={getEmojiForRole}
           getRoleColor={getRoleColor}
+          onSummaryGenerated={(text: string, promptTokens: number, completionTokens: number, totalCost: number) => {
+            setMeetingSummaryText(text);
+            setMeetingCostStats({ promptTokens, completionTokens, totalCost });
+            setCurrentScreen("summary");
+          }}
+          summaryModel={summaryModel}
+        />
+      )}
+
+      {/* S8: 議事録サマリー画面 */}
+      {currentScreen === "summary" && (
+        <SummaryScreen
+          summaryText={meetingSummaryText}
+          meetingAgenda={meetingAgenda}
+          meetingMode={selectedMeetingMode}
+          setCurrentScreen={setCurrentScreen as (screen: any) => void}
+          costStats={meetingCostStats}
         />
       )}
 
@@ -984,6 +1028,8 @@ function App() {
           profileSaveError={profileSaveError}
           handleSaveProfile={handleSaveProfile}
           setCurrentScreen={setCurrentScreen as (s: string) => void}
+          summaryModel={summaryModel}
+          setSummaryModel={setSummaryModel}
         />
       )}
 
