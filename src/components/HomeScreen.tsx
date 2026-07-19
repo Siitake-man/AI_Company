@@ -117,9 +117,9 @@ export const HomeScreen = React.memo(({
     <div style={{ display: 'flex', flex: '1 1 0%', minHeight: 0, gap: '20px', overflow: 'hidden' }}>
       
       {/* 1. 左サイドバー (モック木目調デザイン) */}
-      <div className="w-64 bg-[#e8dcc4] border-r-4 border-[#2e1500] p-4 flex flex-col gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
-        <div className="wood-panel rounded-xl p-4 flex flex-col gap-3 h-full overflow-y-auto">
-          <h2 className="font-title text-xl font-bold text-[var(--color-text)] tracking-wide flex items-center justify-center gap-1">
+      <div className="w-64 shrink-0 sidebar-wood rounded-xl flex flex-col p-4 gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <div className="panel-paper p-3 text-center mb-1 shrink-0 bg-[#F5E6C8]">
+          <h2 className="font-title text-xl font-bold text-[#3d2b1f] tracking-wide flex items-center justify-center gap-1">
             <span>🍃</span> Projects <span>🍃</span>
           </h2>
         </div>
@@ -153,8 +153,7 @@ export const HomeScreen = React.memo(({
       </div>
 
       {/* 2. 右メインエリア */}
-      <div className="flex-1 paper-texture relative overflow-y-auto p-6 md:p-10 flex flex-col"
-          style={{ minHeight: 0, overflowX: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0%', minHeight: 0, height: '100%', overflow: 'hidden' }}>
         {selectedProjectId ? (
           <div className="flex-1 flex flex-col gap-5 min-h-0 relative">
             
@@ -353,7 +352,7 @@ export const HomeScreen = React.memo(({
               <div className="flex justify-center mt-6 mb-8 shrink-0">
                 <button
                   onClick={onStartMeetingClick}
-                  className="retro-button bg-[#F9BA1D] hover:bg-[#ffca40] text-[var(--color-text)] font-bold text-2xl px-12 py-4 rounded-2xl flex items-center gap-4 transition-transform"
+                  className="btn-primary text-md py-3.5 px-10 rounded-xl shadow-md hover:scale-[1.02] transition-transform flex items-center gap-2.5 font-bold"
                 >
                   <span className="text-xl">🎙️</span>
                   <span>このプロジェクトの会議を始める</span>

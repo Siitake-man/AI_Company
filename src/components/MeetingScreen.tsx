@@ -662,7 +662,7 @@ ${logsText}
                 key={log.id} 
                 className={`flex flex-col p-3 rounded-lg border-2 ${
                   isSystem 
-                    ? "bg-[var(--color-panel)]/40 border-dashed border-[var(--color-border-inner)] text-[#5c4636]"
+                    ? "bg-[#f5e6c8]/40 border-dashed border-[#c8a96e] text-[#5c4636]"
                     : "bg-white border-[var(--color-border-inner)]"
                 }`}
                 style={{
