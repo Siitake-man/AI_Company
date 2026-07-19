@@ -130,7 +130,7 @@ export const HomeScreen = React.memo(({
             <div
               key={proj.id}
               onClick={() => setSelectedProjectId(proj.id)}
-              className={selectedProjectId === proj.id ? "sidebar-item-active" : "sidebar-item"}
+              className={selectedProjectId === proj.id ? "bg-[#8B5A2B] text-white font-bold py-3 px-4 rounded-xl border-2 border-[#2e1500] flex items-center gap-3 transition-all" : "bg-white/50 text-[#3E2723] font-medium py-3 px-4 rounded-xl border-2 border-[#c8a96e] hover:bg-white transition-all flex items-center gap-3"}
             >
               <div className="flex items-center gap-2">
                 <span className="text-lg">🌱</span>
@@ -164,14 +164,14 @@ export const HomeScreen = React.memo(({
               <div className="panel-paper p-5 bg-white shadow-sm shrink-0">
                 <div className="flex items-start gap-5">
                   {/* 若葉エンブレム (モックの盾マーク再現) */}
-                  <div className="p-3 bg-[#F0E2CA] border-4 border-[var(--color-border-outer)] rounded-2xl flex items-center justify-center shrink-0 w-20 h-20 shadow-sm">
+                  <div className="p-3 bg-[var(--color-bg)] border-4 border-[var(--color-border-outer)] rounded-2xl flex items-center justify-center shrink-0 w-20 h-20 shadow-sm">
                     <span className="text-4xl select-none">🌱</span>
                   </div>
 
                   {/* プロジェクト詳細情報 */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-4">
-                      <h2 className="text-3xl font-bold text-[#3d2b1f] tracking-tight truncate">
+                      <h2 className="text-3xl font-bold text-[var(--color-text)] tracking-tight truncate">
                         {project?.name}
                       </h2>
                       <div className="flex gap-2">
@@ -198,15 +198,15 @@ export const HomeScreen = React.memo(({
 
               {/* [中央] 統計指標カード (モック準拠) */}
               <div className="grid grid-cols-3 gap-4">
-                <div className="panel-paper p-3.5 flex items-center justify-center gap-2.5 border-2 border-[var(--color-border-outer)] bg-[#F5E6C8] font-bold text-xs shadow-sm">
+                <div className="panel-paper p-3.5 flex items-center justify-center gap-2.5 border-2 border-[var(--color-border-outer)] bg-[var(--color-panel)] font-bold text-xs shadow-sm">
                   <span className="text-lg">👥</span> 
                   <span>{projectMembers.length} メンバー</span>
                 </div>
-                <div className="panel-paper p-3.5 flex items-center justify-center gap-2.5 border-2 border-[var(--color-border-outer)] bg-[#F5E6C8] font-bold text-xs shadow-sm">
+                <div className="panel-paper p-3.5 flex items-center justify-center gap-2.5 border-2 border-[var(--color-border-outer)] bg-[var(--color-panel)] font-bold text-xs shadow-sm">
                   <span className="text-lg">📅</span> 
                   <span>最終会議: {meetingStats.lastDate}</span>
                 </div>
-                <div className="panel-paper p-3.5 flex items-center justify-center gap-2.5 border-2 border-[var(--color-border-outer)] bg-[#F5E6C8] font-bold text-xs shadow-sm">
+                <div className="panel-paper p-3.5 flex items-center justify-center gap-2.5 border-2 border-[var(--color-border-outer)] bg-[var(--color-panel)] font-bold text-xs shadow-sm">
                   <span className="text-lg">🎙️</span> 
                   <span>会議回数: {meetingStats.count}回</span>
                 </div>
@@ -235,12 +235,12 @@ export const HomeScreen = React.memo(({
                           className="border border-[var(--color-border-inner)] rounded-lg p-2.5 bg-amber-50/10 hover:bg-amber-100/50 cursor-pointer flex justify-between items-center transition-all shadow-xs"
                         >
                           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                            <span className="text-xs font-bold text-[#3d2b1f] truncate">
+                            <span className="text-xs font-bold text-[var(--color-text)] truncate">
                               {meet.mode === "exploration" ? "💡 探索会議" : "🎯 収束会議"} (会議 ID: {meet.id})
                             </span>
                             <span className="text-[10px] text-gray-400">{mDate}</span>
                           </div>
-                          <span className="text-[10px] bg-amber-100 text-[#8B5A2B] border border-amber-200 px-3 py-1 rounded-md font-bold shrink-0 hover:bg-amber-200 transition-colors shadow-xs">
+                          <span className="text-[10px] bg-amber-100 text-[var(--color-border-outer)] border border-amber-200 px-3 py-1 rounded-md font-bold shrink-0 hover:bg-amber-200 transition-colors shadow-xs">
                             サマリーを見る 🔍
                           </span>
                         </div>
@@ -252,7 +252,7 @@ export const HomeScreen = React.memo(({
 
               {/* [下部] メンバータロットカード (横スライド型) */}
               <div className="mt-1 flex-1 flex flex-col min-h-0">
-                <h3 className="font-bold text-md mb-3 flex items-center gap-1.5 text-[#3d2b1f]">
+                <h3 className="font-bold text-md mb-3 flex items-center gap-1.5 text-[var(--color-text)]">
                   <span>👥</span> チームメンバー
                 </h3>
 
@@ -268,7 +268,7 @@ export const HomeScreen = React.memo(({
                     const cardBg = getRoleColor(member.role, member.dept_name);
                     
                     // 役割カテゴリごとの太字カラー（モック準拠）
-                    let roleTextColor = "text-[#3d2b1f]";
+                    let roleTextColor = "text-[var(--color-text)]";
                     if (member.dept_name === "戦略" || member.dept_name === "経営" || member.dept_name === "PM") {
                       roleTextColor = "text-[#c2410c]"; // PM系: オレンジ
                     } else if (member.dept_name === "UI/UX" || member.dept_name === "デザイン") {
@@ -308,7 +308,7 @@ export const HomeScreen = React.memo(({
                         </span>
 
                         {/* メンバー名 */}
-                        <h4 className="font-bold text-sm text-[#3d2b1f] mb-1 truncate w-full shrink-0">
+                        <h4 className="font-bold text-sm text-[var(--color-text)] mb-1 truncate w-full shrink-0">
                           {member.name}
                         </h4>
 
@@ -339,7 +339,7 @@ export const HomeScreen = React.memo(({
                   {/* メンバー追加プレースホルダー */}
                   <div 
                     onClick={() => setCurrentScreen("teamManage")}
-                    className="panel-paper flex flex-col items-center justify-center p-5 text-center cursor-pointer hover:bg-[#EDD9B0] transition-all border-dashed border-4 border-[var(--color-border-outer)] opacity-70 hover:opacity-90 min-w-[210px] max-w-[220px] rounded-2xl shrink-0"
+                    className="panel-paper flex flex-col items-center justify-center p-5 text-center cursor-pointer hover:bg-[var(--color-panel)] transition-all border-dashed border-4 border-[var(--color-border-outer)] opacity-70 hover:opacity-90 min-w-[210px] max-w-[220px] rounded-2xl shrink-0"
                     style={{ minHeight: '340px' }}
                   >
                     <span className="text-4xl text-[var(--color-text-sub)] mb-2 select-none">＋</span>
@@ -362,7 +362,7 @@ export const HomeScreen = React.memo(({
             </div>
           </div>
         ) : (
-          <div className="panel-paper p-10 flex flex-col items-center justify-center h-full gap-4 text-[var(--color-text-sub)] bg-[#F5E6C8]">
+          <div className="panel-paper p-10 flex flex-col items-center justify-center h-full gap-4 text-[var(--color-text-sub)] bg-[var(--color-panel)]">
             <span className="text-5xl select-none">🌱</span>
             <div className="flex flex-col items-center justify-center">
               <div className="text-7xl mb-4 select-none">🏡</div>
@@ -379,7 +379,7 @@ export const HomeScreen = React.memo(({
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="panel-paper p-6 bg-white w-full max-w-lg flex flex-col gap-4 shadow-xl border-4 border-[var(--color-border-outer)]" style={{ backgroundColor: 'var(--color-bg)', maxHeight: '90vh' }}>
             <div className="flex justify-between items-center border-b-2 border-[var(--color-border-inner)] pb-2 shrink-0">
-              <h3 className="font-bold text-lg flex items-center gap-1.5 text-[#3d2b1f]">
+              <h3 className="font-bold text-lg flex items-center gap-1.5 text-[var(--color-text)]">
                 📝 プロジェクトコンテキストの編集
               </h3>
               <button 
@@ -408,7 +408,7 @@ export const HomeScreen = React.memo(({
                   value={editProjectValues} 
                   onChange={e => setEditProjectValues(e.target.value)} 
                   rows={8}
-                  className="w-full p-3 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-xs leading-relaxed bg-[#FDF9F0] text-[var(--color-text)] resize-y"
+                  className="w-full p-3 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[var(--color-accent)] font-mono text-xs leading-relaxed bg-[var(--color-bg)] text-[var(--color-text)] resize-y"
                   placeholder="例: &#10;- コスト効率よりも安全性を最優先する&#10;- 技術的な専門用語は初心者にも分かりやすく説明する"
                 />
               </div>

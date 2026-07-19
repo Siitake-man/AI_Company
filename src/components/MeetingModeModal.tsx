@@ -47,7 +47,7 @@ export const MeetingModeModal = ({
             onChange={(e) => setAgenda(e.target.value)}
             rows={3}
             placeholder="会議で話し合う具体的な議題を入力してください..."
-            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] text-xs focus:outline-none focus:border-[#f59e0b] resize-none font-sans leading-relaxed"
+            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] text-xs focus:outline-none focus:border-[var(--color-accent)] resize-none font-sans leading-relaxed"
           />
         </div>
 
@@ -63,7 +63,7 @@ export const MeetingModeModal = ({
             onClick={() => setSelectedMode("exploration")}
             className={`cursor-pointer p-4 rounded-xl border-2 transition-all flex flex-col gap-2 ${
               selectedMode === "exploration"
-                ? "border-[var(--color-accent)] bg-[#FEF3C7]/40 shadow-md"
+                ? "border-[var(--color-accent)] bg-[var(--color-bg)]/40 shadow-md"
                 : "border-[var(--color-border-inner)] hover:border-gray-400 bg-white"
             }`}
             style={{ 
@@ -71,7 +71,7 @@ export const MeetingModeModal = ({
             }}
           >
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm flex items-center gap-1.5 text-[#3d2b1f]">
+              <span className="font-bold text-sm flex items-center gap-1.5 text-[var(--color-text)]">
                 <span>💡</span> 探索モード
               </span>
               <input
@@ -94,7 +94,7 @@ export const MeetingModeModal = ({
             onClick={() => setSelectedMode("convergence")}
             className={`cursor-pointer p-4 rounded-xl border-2 transition-all flex flex-col gap-2 ${
               selectedMode === "convergence"
-                ? "border-[var(--color-accent)] bg-[#FEF3C7]/40 shadow-md"
+                ? "border-[var(--color-accent)] bg-[var(--color-bg)]/40 shadow-md"
                 : "border-[var(--color-border-inner)] hover:border-gray-400 bg-white"
             }`}
             style={{ 
@@ -102,7 +102,7 @@ export const MeetingModeModal = ({
             }}
           >
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm flex items-center gap-1.5 text-[#3d2b1f]">
+              <span className="font-bold text-sm flex items-center gap-1.5 text-[var(--color-text)]">
                 <span>🎯</span> 収束モード
               </span>
               <input

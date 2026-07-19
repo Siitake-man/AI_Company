@@ -16,7 +16,7 @@ export function renderMarkdown(text: string): React.ReactNode {
         // 見出し (H3)
         if (line.startsWith("### ")) {
           return (
-            <h4 key={idx} className="font-bold text-sm text-[#3d2b1f] mt-3 mb-1 flex items-center gap-1">
+            <h4 key={idx} className="font-bold text-sm text-[var(--color-text)] mt-3 mb-1 flex items-center gap-1">
               <span>🔸</span> {parseInline(line.slice(4))}
             </h4>
           );
@@ -24,7 +24,7 @@ export function renderMarkdown(text: string): React.ReactNode {
         // 見出し (H2)
         if (line.startsWith("## ")) {
           return (
-            <h3 key={idx} className="font-bold text-md text-[#8B5A2B] mt-4 mb-2 border-b-2 border-[#8B5A2B]/20 pb-1">
+            <h3 key={idx} className="font-bold text-md text-[var(--color-border-outer)] mt-4 mb-2 border-b-2 border-[var(--color-border-outer)]/20 pb-1">
               {parseInline(line.slice(3))}
             </h3>
           );
@@ -32,7 +32,7 @@ export function renderMarkdown(text: string): React.ReactNode {
         // 見出し (H1)
         if (line.startsWith("# ")) {
           return (
-            <h2 key={idx} className="font-bold text-lg text-[#3d2b1f] mt-5 mb-3 border-b-3 border-[#8B5A2B]/40 pb-1.5">
+            <h2 key={idx} className="font-bold text-lg text-[var(--color-text)] mt-5 mb-3 border-b-3 border-[var(--color-border-outer)]/40 pb-1.5">
               {parseInline(line.slice(2))}
             </h2>
           );
@@ -41,7 +41,7 @@ export function renderMarkdown(text: string): React.ReactNode {
         if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
           const content = line.trim().slice(2);
           return (
-            <ul key={idx} className="list-disc pl-5 my-0.5 text-xs text-[#3d2b1f] leading-relaxed">
+            <ul key={idx} className="list-disc pl-5 my-0.5 text-xs text-[var(--color-text)] leading-relaxed">
               <li>{parseInline(content)}</li>
             </ul>
           );
@@ -51,7 +51,7 @@ export function renderMarkdown(text: string): React.ReactNode {
           const match = line.trim().match(/^(\d+)\.\s(.*)/);
           if (match) {
             return (
-              <ol key={idx} className="list-decimal pl-5 my-0.5 text-xs text-[#3d2b1f] leading-relaxed" start={parseInt(match[1])}>
+              <ol key={idx} className="list-decimal pl-5 my-0.5 text-xs text-[var(--color-text)] leading-relaxed" start={parseInt(match[1])}>
                 <li>{parseInline(match[2])}</li>
               </ol>
             );
@@ -63,7 +63,7 @@ export function renderMarkdown(text: string): React.ReactNode {
         }
         // 通常のテキスト行
         return (
-          <p key={idx} className="text-xs leading-relaxed text-[#3d2b1f] my-0.5">
+          <p key={idx} className="text-xs leading-relaxed text-[var(--color-text)] my-0.5">
             {parseInline(line)}
           </p>
         );
@@ -114,7 +114,7 @@ function parseInline(text: string): React.ReactNode[] {
       // マッチしたトークンをReact装飾エレメントとして追加
       if (matchType === 'bold') {
         parts.push(
-          <strong key={`bold-${keyIdx++}`} className="font-bold text-[#8B5A2B] bg-[#fdf6e3] px-0.5 rounded">
+          <strong key={`bold-${keyIdx++}`} className="font-bold text-[var(--color-border-outer)] bg-[var(--color-bg)] px-0.5 rounded">
             {matchText}
           </strong>
         );

@@ -136,7 +136,7 @@ export const SettingsScreen = React.memo(({
       const inputValue = inputKeys[provider] || "";
       return (
         <tr key={provider}>
-          <td className="font-bold text-[#7a5c3a]">{pName}</td>
+          <td className="font-bold text-[var(--color-text-sub)]">{pName}</td>
           <td>
             {isSaved ? <span className="mock-badge-saved">設定済み</span> : <span className="mock-badge-unsaved">未設定</span>}
           </td>
@@ -172,7 +172,7 @@ export const SettingsScreen = React.memo(({
     <div className="flex-1 flex flex-col min-h-0">
       {/* ヘッダー */}
       <div className="panel-paper p-8 flex justify-between items-center bg-[var(--color-panel)] shrink-0 shadow-sm mb-6 mx-6 mt-4 border-2 border-[var(--color-border-inner)]">
-        <h2 className="font-title text-3xl font-bold text-[#3d2b1f] flex items-center gap-3">
+        <h2 className="font-title text-3xl font-bold text-[var(--color-text)] flex items-center gap-3">
           <span>⚙️</span> 設定
         </h2>
         <button className="btn-secondary text-sm px-6 py-2" onClick={() => setCurrentScreen("home")}>
@@ -185,19 +185,19 @@ export const SettingsScreen = React.memo(({
         
         {/* 左ペイン: メニュー */}
         <div className="w-64 shrink-0 flex flex-col gap-3">
-          <button onClick={() => setActiveTab("ai-api")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "ai-api" ? "bg-[var(--color-panel)] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
+          <button onClick={() => setActiveTab("ai-api")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "ai-api" ? "bg-[var(--color-panel)] border-[var(--color-border-inner)] shadow-sm text-[var(--color-text)]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
             🤖 AI・API設定
           </button>
-          <button onClick={() => setActiveTab("profile")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "profile" ? "bg-[var(--color-panel)] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
+          <button onClick={() => setActiveTab("profile")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "profile" ? "bg-[var(--color-panel)] border-[var(--color-border-inner)] shadow-sm text-[var(--color-text)]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
             👤 コアプロフィール
           </button>
-          <button onClick={() => setActiveTab("app")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "app" ? "bg-[var(--color-panel)] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
+          <button onClick={() => setActiveTab("app")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "app" ? "bg-[var(--color-panel)] border-[var(--color-border-inner)] shadow-sm text-[var(--color-text)]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
             🔔 アプリ設定
           </button>
-          <button onClick={() => setActiveTab("data")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "data" ? "bg-[var(--color-panel)] border-[#c8a96e] shadow-sm text-[#3d2b1f]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
+          <button onClick={() => setActiveTab("data")} className={`text-left px-5 py-4 rounded-xl font-bold text-sm transition-colors border-2 ${activeTab === "data" ? "bg-[var(--color-panel)] border-[var(--color-border-inner)] shadow-sm text-[var(--color-text)]" : "bg-white/50 border-transparent hover:bg-white text-gray-600"}`}>
             🧹 データ管理
           </button>
-          <div className="mt-auto text-center text-xs text-[#7a5c3a] font-bold select-none py-4 opacity-70">
+          <div className="mt-auto text-center text-xs text-[var(--color-text-sub)] font-bold select-none py-4 opacity-70">
             AI Team Builder v1.0.0 💖
           </div>
         </div>
@@ -214,7 +214,7 @@ export const SettingsScreen = React.memo(({
             <div className="flex flex-col gap-10 h-full">
               {/* APIキー管理セクション */}
               <section>
-                <h3 className="font-bold text-xl text-[#3d2b1f] border-b-2 border-gray-100 pb-3 mb-4">🔑 APIキー管理</h3>
+                <h3 className="font-bold text-xl text-[var(--color-text)] border-b-2 border-gray-100 pb-3 mb-4">🔑 APIキー管理</h3>
                 <p className="text-sm text-gray-600 mb-4">各プロバイダーのAPIキーを設定してください。このキーはローカルのセキュアな領域に保存されます。</p>
                 <div className="overflow-x-auto bg-gray-50/50 rounded-xl p-4 border border-gray-100">
                   <table className="mock-table text-sm w-full">
@@ -251,7 +251,7 @@ export const SettingsScreen = React.memo(({
       const inputValue = inputKeys[provider] || "";
       return (
         <tr key={provider}>
-          <td className="font-bold text-[#7a5c3a]">{pName}</td>
+          <td className="font-bold text-[var(--color-text-sub)]">{pName}</td>
           <td>
             {isSaved ? <span className="mock-badge-saved">設定済み</span> : <span className="mock-badge-unsaved">未設定</span>}
           </td>
@@ -285,7 +285,7 @@ export const SettingsScreen = React.memo(({
   }, [apiKeysStatus, editingProvider, saveErrors, inputKeys, handleSaveKey, handleDeleteKey, setInputKeys]);
   return (
                           <tr key={provider}>
-                            <td className="font-bold text-[#3d2b1f] align-middle">{pName}</td>
+                            <td className="font-bold text-[var(--color-text)] align-middle">{pName}</td>
                             <td className="text-center align-middle">
                               {isSaved ? <span className="mock-badge-saved">設定済み</span> : <span className="mock-badge-unsaved">未設定</span>}
                             </td>
@@ -324,12 +324,12 @@ export const SettingsScreen = React.memo(({
               <div className="grid grid-cols-2 gap-8">
                 {/* AIモデル一括適用セクション */}
                 <section className="bg-gray-50/50 p-8 rounded-xl border border-gray-100">
-                  <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-200 pb-2 mb-3">🤖 AIモデル一括適用</h3>
+                  <h3 className="font-bold text-lg text-[var(--color-text)] border-b-2 border-gray-200 pb-2 mb-3">🤖 AIモデル一括適用</h3>
                   <p className="text-xs text-gray-600 mb-4 leading-relaxed">全AI社員が会議や1on1で使用するLLMモデルを一括で変更します。</p>
                   
                   <div className="mt-2">
                     <label className="text-xs font-bold text-[var(--color-text-sub)] mb-2 block">適用するモデル</label>
-                    <select value={selectedBulkModel} onChange={(e) => setSelectedBulkModel(e.target.value)} className="w-full p-3 border-2 border-[var(--color-border-outer)] rounded-lg bg-[#FDF6E3] text-[#3d2b1f] font-bold text-sm focus:outline-none focus:border-[#f59e0b] shadow-sm mb-4">
+                    <select value={selectedBulkModel} onChange={(e) => setSelectedBulkModel(e.target.value)} className="w-full p-3 border-2 border-[var(--color-border-outer)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] font-bold text-sm focus:outline-none focus:border-[var(--color-accent)] shadow-sm mb-4">
                       <option value="">モデルを選択してください...</option>
                       {availableModels.map(model => (
                         <option key={model.id} value={model.model_id}>[{model.provider}] {model.display_name}</option>
@@ -349,12 +349,12 @@ export const SettingsScreen = React.memo(({
 
                 {/* サマリーモデルセクション */}
                 <section className="bg-gray-50/50 p-8 rounded-xl border border-gray-100">
-                  <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-200 pb-2 mb-3">📝 サマリーモデル</h3>
+                  <h3 className="font-bold text-lg text-[var(--color-text)] border-b-2 border-gray-200 pb-2 mb-3">📝 サマリーモデル</h3>
                   <p className="text-xs text-gray-600 mb-4 leading-relaxed">会議全体の議事録サマリーを生成する際に優先して利用するモデルを選択します。コンテキストウィンドウが大きく、要約に長けたモデルをおすすめします。</p>
                   
                   <div className="mt-2">
                     <label className="text-xs font-bold text-[var(--color-text-sub)] mb-2 block">利用するモデル</label>
-                    <select value={summaryModel} onChange={(e) => handleSaveSummaryModel(e.target.value)} className="w-full p-3 border-2 border-[var(--color-border-outer)] rounded-lg bg-[#FDF6E3] text-[#3d2b1f] font-bold text-sm focus:outline-none focus:border-[#f59e0b] shadow-sm">
+                    <select value={summaryModel} onChange={(e) => handleSaveSummaryModel(e.target.value)} className="w-full p-3 border-2 border-[var(--color-border-outer)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] font-bold text-sm focus:outline-none focus:border-[var(--color-accent)] shadow-sm">
                       {availableModels.map(model => (
                         <option key={model.id} value={model.model_id}>[{model.provider}] {model.display_name}</option>
                       ))}
@@ -367,13 +367,13 @@ export const SettingsScreen = React.memo(({
 
           {activeTab === "profile" && (
             <div className="flex flex-col gap-6 h-full">
-              <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-100 pb-2">👤 ユーザー・コアプロフィール (第1層)</h3>
+              <h3 className="font-bold text-lg text-[var(--color-text)] border-b-2 border-gray-100 pb-2">👤 ユーザー・コアプロフィール (第1層)</h3>
               <p className="text-xs text-gray-600 mb-2">このプロフィールは全AI社員のシステムプロンプトの最上層にマージされます。あなたの価値観、目標、制約条件などを記述してください。</p>
               
               {profileSaveSuccess && <div className="bg-emerald-50 border border-emerald-300 text-emerald-950 px-3 py-1.5 rounded text-xs font-semibold max-w-2xl">🌱 {profileSaveSuccess}</div>}
               {profileSaveError && <div className="bg-red-50 border border-red-300 text-red-950 px-3 py-1.5 rounded text-xs font-semibold max-w-2xl">⚠️ {profileSaveError}</div>}
 
-              <textarea value={editCoreProfile} onChange={(e) => setEditCoreProfile(e.target.value)} rows={15} className="w-full max-w-2xl flex-1 p-4 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-sm leading-relaxed bg-[#FDF9F0] text-[var(--color-text)] resize-none" placeholder="【ユーザー像】〜&#10;【コアバリュー】〜" />
+              <textarea value={editCoreProfile} onChange={(e) => setEditCoreProfile(e.target.value)} rows={15} className="w-full max-w-2xl flex-1 p-4 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[var(--color-accent)] font-mono text-sm leading-relaxed bg-[var(--color-bg)] text-[var(--color-text)] resize-none" placeholder="【ユーザー像】〜&#10;【コアバリュー】〜" />
               
               <div className="max-w-2xl flex justify-end mt-2 shrink-0">
                 <button onClick={handleSaveProfile} className="btn-primary px-6 py-2 shadow-sm">💾 保存する</button>
@@ -383,18 +383,18 @@ export const SettingsScreen = React.memo(({
 
           {activeTab === "app" && (
             <div className="flex flex-col gap-6 h-full">
-              <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-100 pb-2">🔔 アプリ設定</h3>
+              <h3 className="font-bold text-lg text-[var(--color-text)] border-b-2 border-gray-100 pb-2">🔔 アプリ設定</h3>
               <div className="flex flex-col gap-4 max-w-md mt-2">
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="font-bold text-sm text-[#3d2b1f] flex items-center gap-2"><span>🔔</span> デスクトップ通知</span>
+                  <span className="font-bold text-sm text-[var(--color-text)] flex items-center gap-2"><span>🔔</span> デスクトップ通知</span>
                   <label className="mock-toggle"><input type="checkbox" checked={notifToggle} onChange={(e) => setNotifToggle(e.target.checked)} /><span className="mock-slider"><span className="mock-slider-label-on">ON</span><span className="mock-slider-label-off">OFF</span></span></label>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="font-bold text-sm text-[#3d2b1f] flex items-center gap-2"><span>💾</span> 会議ログの自動保存</span>
+                  <span className="font-bold text-sm text-[var(--color-text)] flex items-center gap-2"><span>💾</span> 会議ログの自動保存</span>
                   <label className="mock-toggle"><input type="checkbox" checked={autoSaveToggle} onChange={(e) => setAutoSaveToggle(e.target.checked)} /><span className="mock-slider"><span className="mock-slider-label-on">ON</span><span className="mock-slider-label-off">OFF</span></span></label>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="font-bold text-sm text-[#3d2b1f] flex items-center gap-2"><span>🌙</span> ダークモード（準備中）</span>
+                  <span className="font-bold text-sm text-[var(--color-text)] flex items-center gap-2"><span>🌙</span> ダークモード（準備中）</span>
                   <label className="mock-toggle opacity-70"><input type="checkbox" disabled checked={darkModeToggle} onChange={(e) => setDarkModeToggle(e.target.checked)} /><span className="mock-slider"><span className="mock-slider-label-on">ON</span><span className="mock-slider-label-off">OFF</span></span></label>
                 </div>
               </div>
@@ -403,7 +403,7 @@ export const SettingsScreen = React.memo(({
 
           {activeTab === "data" && (
             <div className="flex flex-col gap-6 h-full">
-              <h3 className="font-bold text-lg text-[#3d2b1f] border-b-2 border-gray-100 pb-2">🧹 データ管理</h3>
+              <h3 className="font-bold text-lg text-[var(--color-text)] border-b-2 border-gray-100 pb-2">🧹 データ管理</h3>
               <div className="flex flex-col gap-3 max-w-md mt-2">
                 <button onClick={() => alert("全データベース情報をJSONとしてエクスポートします...")} className="btn-secondary justify-center py-3 font-bold"><span>📤</span> 全データをエクスポート (JSON)</button>
                 <button onClick={() => alert("モデル一覧およびキャッシュ情報をリセットしました。")} className="btn-secondary justify-center py-3 font-bold"><span>🧹</span> キャッシュをクリア</button>
