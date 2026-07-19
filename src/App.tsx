@@ -834,7 +834,7 @@ function App() {
           className="cursor-pointer hover:opacity-80 transition-opacity"
           title="ホーム画面に戻る"
         >
-          <h1 className="font-title text-4xl text-[var(--color-border-outer)] flex items-center gap-2">🪵 AIカンパニー</h1><span className="ml-4 text-sm text-[var(--color-text-sub)] font-sans">Build the perfect AI team for your mission. 🌸</span>
+          <h1 className="font-title text-3xl text-[var(--color-text)] leading-none flex items-center gap-2"><span className="text-4xl">🌱</span> AI Team Builder</h1>
         </div>
         <div className="flex gap-2">
           {currentScreen !== "home" && (

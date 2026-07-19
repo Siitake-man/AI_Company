@@ -27,8 +27,8 @@ export const ApiKeySetupScreen = ({
   return (
     <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 mt-4">
       {/* 説明パネル */}
-      <div className="bg-[#f5e6c8] border-2 border-[#c8a96e] p-5 rounded-lg shadow-sm flex flex-col gap-2">
-        <h2 className="font-bold text-lg flex items-center gap-1 text-[#3d2b1f]">
+      <div className="bg-[var(--color-panel)] border-2 border-[var(--color-border-inner)] p-5 rounded-lg shadow-sm flex flex-col gap-2">
+        <h2 className="font-bold text-lg flex items-center gap-1 text-[var(--color-text)]">
           🗝️ 初回設定: APIキーの安全な保管
         </h2>
         <p className="text-sm leading-relaxed text-[#5c4636]">
@@ -75,11 +75,11 @@ export const ApiKeySetupScreen = ({
           return (
             <div
               key={provider}
-              className="bg-white border-2 border-[#c8a96e] rounded-lg shadow-sm overflow-hidden flex flex-col"
+              className="bg-white border-2 border-[var(--color-border-inner)] rounded-lg shadow-sm overflow-hidden flex flex-col"
             >
               {/* カードヘッダー */}
-              <div className="bg-[#f5e6c8] px-4 py-3 border-b-2 border-[#c8a96e] flex justify-between items-center">
-                <span className="font-bold text-sm tracking-wide text-[#3d2b1f]">{title}</span>
+              <div className="bg-[var(--color-panel)] px-4 py-3 border-b-2 border-[var(--color-border-inner)] flex justify-between items-center">
+                <span className="font-bold text-sm tracking-wide text-[var(--color-text)]">{title}</span>
                 {isSaved ? (
                   <span className="bg-emerald-600 text-white text-xxs px-2.5 py-0.5 rounded-full font-bold shadow-sm flex items-center gap-1 animate-pulse">
                     ● 金庫に保管中
@@ -115,11 +115,11 @@ export const ApiKeySetupScreen = ({
                         onChange={(e) =>
                           setInputKeys((prev) => ({ ...prev, [provider]: e.target.value }))
                         }
-                        className="flex-1 px-3 py-2 border-2 border-[#c8a96e] rounded-lg focus:outline-none focus:border-[#f59e0b] font-mono text-sm shadow-inner bg-[#fdf6e3] text-[#3d2b1f]"
+                        className="flex-1 px-3 py-2 border-2 border-[var(--color-border-inner)] rounded-lg focus:outline-none focus:border-[var(--color-accent)] font-mono text-sm shadow-inner bg-[var(--color-bg)] text-[var(--color-text)]"
                       />
                       <button
                         onClick={() => handleSaveKey(provider)}
-                        className="px-4 py-2 bg-[#f59e0b] hover:bg-[#d97706] text-white rounded-lg font-bold text-sm transition-all border border-[#d97706] shadow-sm flex items-center gap-1 shrink-0"
+                        className="px-4 py-2 bg-[var(--color-interrupt)] hover:bg-[#d97706] text-white rounded-lg font-bold text-sm transition-all border border-[#d97706] shadow-sm flex items-center gap-1 shrink-0"
                       >
                         📥 保存する
                       </button>
@@ -138,12 +138,12 @@ export const ApiKeySetupScreen = ({
         {hasAnyKey ? (
           <button
             onClick={() => setCurrentScreen("promptTest")}
-            className="px-8 py-3 bg-[#f59e0b] hover:bg-[#d97706] text-white font-extrabold rounded-lg shadow-md border-2 border-[#d97706] tracking-wider transition-all animate-bounce text-sm"
+            className="px-8 py-3 bg-[var(--color-interrupt)] hover:bg-[#d97706] text-white font-extrabold rounded-lg shadow-md border-2 border-[#d97706] tracking-wider transition-all animate-bounce text-sm"
           >
             ✨ APIキー設定完了！マージ検証に進む
           </button>
         ) : (
-          <p className="text-xs text-[#8f6d53] italic bg-[#f5e6c8] px-4 py-2 border border-[#c8a96e] rounded-lg">
+          <p className="text-xs text-[#8f6d53] italic bg-[var(--color-panel)] px-4 py-2 border border-[var(--color-border-inner)] rounded-lg">
             ※アプリを動かすには、最低1つ以上のAPIキーを金庫に保存してください。
           </p>
         )}

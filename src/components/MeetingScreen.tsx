@@ -574,7 +574,7 @@ ${logsText}
         {/* 進行状況インジケーター */}
         <div className="bg-white/80 border border-[var(--color-border-inner)] rounded-lg p-3 text-xs flex flex-col gap-2 shrink-0 shadow-inner">
           <div className="flex justify-between items-center">
-            <span className="font-bold text-[#3d2b1f]">状態:</span>
+            <span className="font-bold text-[var(--color-text)]">状態:</span>
             <span className={`px-2 py-0.5 rounded font-bold ${
               isPaused ? "bg-amber-100 text-amber-800" : isGenerating ? "bg-blue-100 text-blue-800 animate-pulse" : "bg-green-100 text-green-800"
             }`}>
@@ -582,13 +582,13 @@ ${logsText}
             </span>
           </div>
           <div>
-            <span className="font-bold text-[#3d2b1f]">進行モード:</span> {meetingMode === "exploration" ? "💡 探索" : "🎯 収束"}
+            <span className="font-bold text-[var(--color-text)]">進行モード:</span> {meetingMode === "exploration" ? "💡 探索" : "🎯 収束"}
           </div>
           <div>
-            <span className="font-bold text-[#3d2b1f]">進行ターン:</span> {turnCount} / {maxTurns}
+            <span className="font-bold text-[var(--color-text)]">進行ターン:</span> {turnCount} / {maxTurns}
           </div>
           <div>
-            <span className="font-bold text-[#3d2b1f]">推定コスト:</span> ${totalCost.toFixed(5)}
+            <span className="font-bold text-[var(--color-text)]">推定コスト:</span> ${totalCost.toFixed(5)}
           </div>
           <div className="mt-1 border-t border-gray-200 pt-1 text-[10px] text-gray-400">
             現在の話者: <span className="font-bold text-gray-700">{activeMembers[activeMemberIdx]?.name || "なし"}</span>
@@ -604,7 +604,7 @@ ${logsText}
               <div
                 key={member.id}
                 className={`bg-white border-2 rounded p-2 flex items-center gap-2 shadow-sm transition-all ${
-                  isActive ? "border-[var(--color-accent)] ring-2 ring-[#f59e0b]/20 scale-[1.02]" : "border-[var(--color-border-inner)]"
+                  isActive ? "border-[var(--color-accent)] ring-2 ring-[var(--color-interrupt)]/20 scale-[1.02]" : "border-[var(--color-border-inner)]"
                 }`}
                 style={{ borderLeft: `6px solid ${getRoleColor(member.role, member.dept_name)}` }}
               >
@@ -623,7 +623,7 @@ ${logsText}
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold truncate text-[#3d2b1f]">{member.name}</p>
+                  <p className="text-xs font-bold truncate text-[var(--color-text)]">{member.name}</p>
                   <p className="text-[9px] text-gray-500 truncate">{member.role}</p>
                 </div>
               </div>
@@ -644,8 +644,8 @@ ${logsText}
         
         {/* 会議の議題アジェンダ表示ヘッダー */}
         <div className="panel-paper p-3 mb-3 bg-[#fdfbeb] border-2 border-[var(--color-border-inner)] shrink-0 flex flex-col gap-1">
-          <span className="text-[10px] font-bold text-[#f59e0b] tracking-wider">📌 会議の議題 / AGENDA</span>
-          <h3 className="font-bold text-sm text-[#3d2b1f] truncate" title={meetingAgenda}>
+          <span className="text-[10px] font-bold text-[var(--color-interrupt)] tracking-wider">📌 会議の議題 / AGENDA</span>
+          <h3 className="font-bold text-sm text-[var(--color-text)] truncate" title={meetingAgenda}>
             {meetingAgenda}
           </h3>
         </div>
@@ -662,7 +662,7 @@ ${logsText}
                 key={log.id} 
                 className={`flex flex-col p-3 rounded-lg border-2 ${
                   isSystem 
-                    ? "bg-[#f5e6c8]/40 border-dashed border-[#c8a96e] text-[#5c4636]" 
+                    ? "bg-[var(--color-panel)]/40 border-dashed border-[var(--color-border-inner)] text-[#5c4636]"
                     : "bg-white border-[var(--color-border-inner)]"
                 }`}
                 style={{
@@ -673,7 +673,7 @@ ${logsText}
               >
                 {!isSystem && (
                   <div className="flex items-center gap-2 mb-1 border-b border-gray-100 pb-1">
-                    <span className="font-bold text-xs text-[#3d2b1f]">{log.sender}</span>
+                    <span className="font-bold text-xs text-[var(--color-text)]">{log.sender}</span>
                     <span 
                       className="text-[9px] border px-1.5 py-0.2 rounded font-bold shadow-xs text-gray-700"
                       style={{ backgroundColor: getRoleColor(log.role, log.sender) }}
@@ -682,7 +682,7 @@ ${logsText}
                     </span>
                   </div>
                 )}
-                <p className="text-xs leading-relaxed whitespace-pre-wrap text-[#3d2b1f]">{log.content}</p>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap text-[var(--color-text)]">{log.content}</p>
                 <span className="text-[8px] text-gray-400 self-end mt-1">{log.time}</span>
               </div>
             );
@@ -699,7 +699,7 @@ ${logsText}
 
           {isSummarizing && (
             <div 
-              className="flex flex-col items-center justify-center p-6 rounded-lg border-2 border-dashed border-[#f59e0b] bg-[#FEF3C7]/20 my-4"
+              className="flex flex-col items-center justify-center p-6 rounded-lg border-2 border-dashed border-[var(--color-interrupt)] bg-[var(--color-bg)]/20 my-4"
               style={{ alignSelf: "center", width: "90%" }}
             >
               <span className="text-2xl animate-spin">⏳</span>
@@ -748,15 +748,15 @@ ${logsText}
       {/* 右サイドバー: リアルタイムホワイトボード */}
       <div className="w-72 shrink-0 flex flex-col gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
         <div 
-          className="panel-paper flex-1 bg-[#fbfcf7] border-4 border-[#8B5A2B] rounded-xl p-4 flex flex-col gap-4 overflow-hidden" 
+          className="panel-paper flex-1 bg-[#fbfcf7] border-4 border-[var(--color-border-outer)] rounded-xl p-4 flex flex-col gap-4 overflow-hidden"
           style={{ 
             boxShadow: "6px 6px 0px var(--color-border-outer)",
             backgroundImage: "radial-gradient(#e5e7eb 1.5px, transparent 1.5px)",
             backgroundSize: "20px 20px"
           }}
         >
-          <div className="border-b-[3px] border-double border-[#8B5A2B] pb-2 flex justify-between items-center shrink-0">
-            <span className="font-title text-2xl font-bold text-[#8B5A2B] flex items-center gap-1.5">📋 WHITEBOARD</span>
+          <div className="border-b-[3px] border-double border-[var(--color-border-outer)] pb-2 flex justify-between items-center shrink-0">
+            <span className="font-title text-2xl font-bold text-[var(--color-border-outer)] flex items-center gap-1.5">📋 WHITEBOARD</span>
             <span className="text-[9px] bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full font-bold select-none">REALTIME</span>
           </div>
           
@@ -773,7 +773,7 @@ ${logsText}
 
             <div className="border-t border-dashed border-gray-300 pt-3 mt-auto flex flex-col gap-1.5 shrink-0 bg-amber-50/50 p-2.5 rounded border border-amber-200">
               <span className="text-[10px] font-bold text-[var(--color-text-sub)]">📌 ファシリテーターメモ</span>
-              <p className="text-[9.5px] text-[#7a5c3a] leading-relaxed">
+              <p className="text-[9.5px] text-[var(--color-text-sub)] leading-relaxed">
                 議論の進行に合わせて、AI専門家たちがホワイトボードの内容をリアルタイムに更新・整理します。
               </p>
             </div>

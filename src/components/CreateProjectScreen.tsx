@@ -49,7 +49,7 @@ export const CreateProjectScreen = ({
     <div className="flex-1 flex flex-col gap-6 max-w-3xl mx-auto py-4">
       {/* ヘッダー */}
       <div className="panel-paper p-4 flex justify-between items-center bg-[var(--color-panel)] shrink-0">
-        <h2 className="font-bold text-xl text-[#3d2b1f] flex items-center gap-2">
+        <h2 className="font-bold text-xl text-[var(--color-text)] flex items-center gap-2">
           🌱 新しいプロジェクトの作成
         </h2>
         <button
@@ -79,7 +79,7 @@ export const CreateProjectScreen = ({
             value={newProjectName}
             onChange={(e) => setNewProjectName(e.target.value)}
             placeholder="例: 新規ECサービス立ち上げ, NPO-Trust支援"
-            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] font-bold focus:outline-none focus:border-[#f59e0b] text-sm"
+            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] font-bold focus:outline-none focus:border-[var(--color-accent)] text-sm"
           />
         </div>
 
@@ -93,7 +93,7 @@ export const CreateProjectScreen = ({
             onChange={(e) => setNewProjectPurpose(e.target.value)}
             rows={3}
             placeholder="このプロジェクトを通じて何を実現するか？ 例: NWとPMスキルを活かした独自の価値提供の形を創出する。"
-            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none focus:border-[#f59e0b] text-xs resize-none"
+            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)] text-xs resize-none"
           />
         </div>
 
@@ -107,7 +107,7 @@ export const CreateProjectScreen = ({
             onChange={(e) => setNewProjectValues(e.target.value)}
             rows={3}
             placeholder="会議での決断で重視する軸。 例: 短期利益より長期的な信頼。隙間時間の5分で完結する高密度なアウトプット。"
-            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none focus:border-[#f59e0b] text-xs resize-none"
+            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)] text-xs resize-none"
           />
         </div>
 
@@ -129,7 +129,7 @@ export const CreateProjectScreen = ({
                   onClick={() => toggleDept(dept.key)}
                   className={`p-3 rounded-lg border-2 cursor-pointer transition-all flex items-start gap-3 shadow-sm select-none ${
                     isChecked
-                      ? "bg-[#fdfbeb] border-[#f59e0b]"
+                      ? "bg-[#fdfbeb] border-[var(--color-interrupt)]"
                       : "bg-white border-gray-200 hover:bg-gray-50 opacity-70"
                   }`}
                 >
@@ -137,10 +137,10 @@ export const CreateProjectScreen = ({
                     type="checkbox"
                     checked={isChecked}
                     onChange={() => {}} // 親divのonClickで制御
-                    className="mt-0.5 pointer-events-none accent-[#f59e0b]"
+                    className="mt-0.5 pointer-events-none accent-[var(--color-interrupt)]"
                   />
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-bold text-[#3d2b1f]">{dept.name}</span>
+                    <span className="text-xs font-bold text-[var(--color-text)]">{dept.name}</span>
                     <span className="text-[10px] text-gray-500 leading-relaxed">{dept.desc}</span>
                   </div>
                 </div>

@@ -14,8 +14,8 @@ export const PromptTestScreen = ({
   return (
     <div className="flex-1 flex flex-col gap-6">
       {/* テスト切り替えエリア */}
-      <div className="bg-[#f5e6c8] border-2 border-[#c8a96e] p-4 rounded-lg shadow-sm flex flex-col gap-4">
-        <h2 className="font-bold text-lg flex items-center gap-1 text-[#3d2b1f]">
+      <div className="bg-[var(--color-panel)] border-2 border-[var(--color-border-inner)] p-4 rounded-lg shadow-sm flex flex-col gap-4">
+        <h2 className="font-bold text-lg flex items-center gap-1 text-[var(--color-text)]">
           💡 テストケースの切り替え
         </h2>
         <div className="flex gap-4">
@@ -23,8 +23,8 @@ export const PromptTestScreen = ({
             onClick={() => setSelectedMemberId(1)}
             className={`flex-1 py-3 px-4 rounded-lg border-2 font-bold transition-all flex flex-col items-center gap-1 ${
               selectedMemberId === 1
-                ? "bg-[#f59e0b] text-white border-[#d97706] shadow-md"
-                : "bg-white text-[#3d2b1f] border-[#c8a96e] hover:bg-gray-50"
+                ? "bg-[var(--color-interrupt)] text-white border-[#d97706] shadow-md"
+                : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
             }`}
           >
             <span>【ケース1】通常の部署メンバー（法務部・鈴木）</span>
@@ -36,8 +36,8 @@ export const PromptTestScreen = ({
             onClick={() => setSelectedMemberId(2)}
             className={`flex-1 py-3 px-4 rounded-lg border-2 font-bold transition-all flex flex-col items-center gap-1 ${
               selectedMemberId === 2
-                ? "bg-[#f59e0b] text-white border-[#d97706] shadow-md"
-                : "bg-white text-[#3d2b1f] border-[#c8a96e] hover:bg-gray-50"
+                ? "bg-[var(--color-interrupt)] text-white border-[#d97706] shadow-md"
+                : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
             }`}
           >
             <span>【ケース2】思考スタイル（悪魔の代弁者）</span>
@@ -61,14 +61,14 @@ export const PromptTestScreen = ({
           <h3 className="font-bold text-base flex items-center gap-1 text-[#5c4636]">
             📝 マージ出力結果（最終システムプロンプト）:
           </h3>
-          <span className="text-xs bg-[#c8a96e] text-white px-3 py-1 rounded font-bold shadow-sm">
+          <span className="text-xs bg-[var(--color-border-inner)] text-white px-3 py-1 rounded font-bold shadow-sm">
             {selectedMemberId === 1 ? "法務部 鈴木のプロンプト" : "悪魔の代弁者のプロンプト"}
           </span>
         </div>
         <textarea
           readOnly
           value={mergedPrompt}
-          className="w-full flex-1 p-4 bg-white border-2 border-[#c8a96e] rounded-lg font-mono text-xs leading-relaxed focus:outline-none resize-none shadow-inner text-[#3d2b1f] h-[450px]"
+          className="w-full flex-1 p-4 bg-white border-2 border-[var(--color-border-inner)] rounded-lg font-mono text-xs leading-relaxed focus:outline-none resize-none shadow-inner text-[var(--color-text)] h-[450px]"
           placeholder="プロンプトがここに生成されます..."
         />
       </div>
