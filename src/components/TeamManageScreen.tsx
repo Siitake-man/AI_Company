@@ -1,11 +1,12 @@
+import { Project, ProjectMember } from "../lib/types";
 type TeamManageScreenProps = {
   currentScreen: string;
-  projects: any[];
+  projects: Project[];
   selectedProjectId: number | null;
   setSelectedProjectId: (id: number) => void;
   setCreateProjectError: (err: string) => void;
   setCurrentScreen: (s: string) => void;
-  projectMembers: any[];
+  projectMembers: ProjectMember[];
   getAvatarPath: (id: string) => string;
   getEmojiForRole: (dept: string, role: string) => string;
   getRoleColor: (role: string, dept: string) => string;

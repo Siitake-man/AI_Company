@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { MeetingMode } from "./MeetingModeModal";
+import { Project, ProjectMember } from "../lib/types";
 import Database from "@tauri-apps/plugin-sql";
 import { getMergedSystemPrompt } from "../lib/promptMerger";
 import { calculateCost } from "../lib/utils";
@@ -7,9 +8,9 @@ import { callLLMWithPrompt, callLLMWithFallback, resolveApiKey } from "../lib/ll
 
 type MeetingScreenProps = {
   dbInstance: Database | null;
-  projectMembers: any[];
+  projectMembers: ProjectMember[];
   selectedProjectId: number | null;
-  projects: any[];
+  projects: Project[];
   meetingMode: MeetingMode | null;
   meetingAgenda: string;
   setCurrentScreen: (screen: "home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat" | "meeting" | "summary") => void;

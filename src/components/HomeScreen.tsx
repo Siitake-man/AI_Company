@@ -1,11 +1,12 @@
+import { Project, ProjectMember } from "../lib/types";
 import React, { useState, useEffect, useMemo } from "react";
 
 type HomeScreenProps = {
   dbInstance: any;
-  projects: any[];
+  projects: Project[];
   selectedProjectId: number | null;
   setSelectedProjectId: (id: number) => void;
-  projectMembers: any[];
+  projectMembers: ProjectMember[];
   getAvatarPath: (id: string) => string;
   getEmojiForRole: (dept: string, role: string) => string;
   getRoleColor: (role: string, dept: string) => string;

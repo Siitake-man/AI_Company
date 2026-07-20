@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Project, ProjectMember } from "../lib/types";
 import Database from "@tauri-apps/plugin-sql";
 import { getMergedSystemPrompt } from "../lib/promptMerger";
 import { getApiKey, PROVIDERS, ProviderType } from "../lib/apiKeyStore";
@@ -14,8 +15,8 @@ type ChatScreenProps = {
   setChatSessionId: (id: number | null) => void;
   currentScreen: string;
   setCurrentScreen: (s: string) => void;
-  projectMembers: any[];
-  projects: any[];
+  projectMembers: ProjectMember[];
+  projects: Project[];
   selectedProjectId: number | null;
   setSelectedProjectId: (id: number) => void;
   getAvatarPath: (id: string) => string;

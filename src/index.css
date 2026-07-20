@@ -63,7 +63,7 @@ h1, h2, .font-title {
   background-color: var(--color-accent-hover);
 }
 .btn-primary:active {
-  transform: translate(2px, 2px);
+  transform: translate(2px, 2px) scale(0.95);
   box-shadow: none;
 }
 .btn-primary:disabled {
@@ -94,7 +94,7 @@ h1, h2, .font-title {
   background-color: #EDD9B0;
 }
 .btn-secondary:active {
-  transform: translate(2px, 2px);
+  transform: translate(2px, 2px) scale(0.95);
   box-shadow: none;
 }
 
@@ -118,7 +118,7 @@ h1, h2, .font-title {
   background-color: #D9534F;
 }
 .btn-danger:active {
-  transform: translate(2px, 2px);
+  transform: translate(2px, 2px) scale(0.95);
   box-shadow: none;
 }
 
@@ -349,4 +349,17 @@ input:checked + .mock-slider .mock-slider-label-off {
     border: 2px solid var(--color-border-outer);
     border-radius: 16px;
     box-shadow: 2px 2px 0px rgba(62, 39, 35, 0.4);
+}
+
+/* Task 4: Scrollbar for .sidebar-wood */
+.sidebar-wood::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-wood::-webkit-scrollbar-track {
+  background: rgba(139, 90, 43, 0.2);
+  border-radius: 4px;
+}
+.sidebar-wood::-webkit-scrollbar-thumb {
+  background: var(--color-border-outer);
+  border-radius: 4px;
 }
