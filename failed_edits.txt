@@ -194,6 +194,9 @@ FAILED REPLACE IN PROMPT:
 }
 
 FAILED REPLACE IN APP.TSX:
+import { useState, useEffect } from "react";
+
+FAILED REPLACE IN APP.TSX:
   // 画面遷移・APIキー関連の状態
   const [currentScreen, setCurrentScreen] = useState<"home" | "apiKeySetup" | "promptTest" | "settings" | "createProject" | "teamManage" | "chat">("apiKeySetup");
   const [chatMemberId, setChatMemberId] = useState<number | null>(null);

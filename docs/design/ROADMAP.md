@@ -93,9 +93,18 @@ flowchart TD
 | 2026-07-16 | Antigravity | 1on1チャット(E6)のDBセッションスキーマ不整合を修正し、会議モード選択モーダル(F7A)を実装完了。消失した4画面をコンポーネント分割で復元。 |
 | 2026-07-16 | Jules | S1〜S8の全画面UIを「かわいい手帳風」にリデザイン。S8（議事録・サマリー）画面を新規作成し、Markdownエクスポート機能を実装。会議モードのAPIキーガード強化。Phase 1完了。 |
 | 2026-07-18 | Antigravity | 設定画面(S9)の2ペイン化およびタブ統合。Tauri v2の厳格なパーミッション（dialog/fs）不足によるAPIキーテスト・サマリー保存機能の不具合を解消。グローバルSKILL（コンテキスト自動生成）を作成。 |
+| 2026-07-20 | Antigravity | Phase 2 設計書（PHASE2_PLAN.md）作成。LLM呼び出しを `src/lib/llmProvider.ts` に共通化。古いJules引き継ぎファイルをarchive化。 |
 
 
-## Phase 2 Preparations (Node J)
-- **RAG Implementation**: Preparation for RAG.
-- **LangChain.js**: Preparation for LangChain.js.
-- **Prompt Merging**: Deeper prompt merge logic.
+## Phase 2（来月以降・優先順位順）
+
+1. **LangChain.js 導入（Phase 2a）**: `@langchain/core` + 各プロバイダーのChatModelラッパー。`MeetingScreen.tsx` の生fetch()を置き換える
+2. **RAG + LanceDB 導入**: プロジェクト単位の知識ベース（「同じ倉庫、違うレンズ」方式）。`member_learnings` のベクトル検索化
+3. **PromptTemplate 標準化**: `MeetingScreen.tsx` のユーザープロンプト構築ロジックをテンプレートファイルに分離
+4. **会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録
+5. **検索→コンテキスト注入の統合**: 4層マージの第2層（プロジェクト価値観）の後にRAG結果を動的に注入
+6. **コアプロフィールの本格作り込み**: 他AIからの情報抽出プロンプト付きUI
+7. **ワークフロー型会議（Phase 2c）**: `RunnableSequence` による発言生成チェーン
+8. **以降**: 会議モードの途中切り替え / 非同期会議 / ローカルLLM / MCPサーバー化
+
+詳細は `docs/design/PHASE2_PLAN.md` を参照。

@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { MeetingMode } from "./MeetingModeModal";
 import Database from "@tauri-apps/plugin-sql";
 import { getMergedSystemPrompt } from "../lib/promptMerger";
-import { getApiKey, PROVIDERS, ProviderType } from "../lib/apiKeyStore";
-import { parseApiError, calculateCost } from "../lib/utils";
+import { calculateCost } from "../lib/utils";
+import { callLLMWithPrompt, callLLMWithFallback, resolveApiKey } from "../lib/llmProvider";
 
 type MeetingScreenProps = {
   dbInstance: Database | null;
@@ -91,11 +91,11 @@ export const MeetingScreen = ({
   useEffect(() => {
     // ガード句 (ターン上限到達時もループ停止)
     if (
-      isPaused || 
-      isGenerating || 
-      isSummarizing || 
-      activeMembers.length === 0 || 
-      !dbInstance || 
+      isPaused ||
+      isGenerating ||
+      isSummarizing ||
+      activeMembers.length === 0 ||
+      !dbInstance ||
       meetingLogs.length === 0 ||
       turnCount >= maxTurns
     ) {
@@ -116,18 +116,9 @@ export const MeetingScreen = ({
           memberId: currentMember.id
         });
 
-        // 2. APIキーとモデルの特定
+        // 2. APIキーとモデルの特定（llmProviderのresolveApiKeyを利用）
         const modelId = currentMember.ai_model || "gpt-4o";
-        let providerType: ProviderType | null = null;
-        let apiKey = "";
-
-        if (modelId.includes("gpt")) providerType = PROVIDERS.OPENAI;
-        else if (modelId.includes("claude")) providerType = PROVIDERS.ANTHROPIC;
-        else if (modelId.includes("gemini")) providerType = PROVIDERS.GEMINI;
-
-        if (providerType) {
-          apiKey = await getApiKey(providerType) || "";
-        }
+        const { providerType, apiKey } = await resolveApiKey(modelId);
 
         if (!apiKey) {
           // APIキー未設定時は会議を安全に一時停止し、ユーザーに気づかせる
@@ -169,81 +160,21 @@ ${historyText || "（議論の開始です。最初の発言をお願いしま�
 - 発言の最後に必ず、[BOARD]現在の課題: ○○ | 考える方針: ○○[/BOARD] の形式で、議論を整理するためのメモを1行で出力してください（出力メッセージ本文には表示されません）。
 `;
 
-        // 5. APIコール
-        let replyContent = "";
-        let pTokens = 0;
-        let cTokens = 0;
-
-        if (providerType === PROVIDERS.OPENAI) {
-          const res = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: modelId,
-              messages: [
-                { role: "system", content: sysPrompt },
-                { role: "user", content: userPrompt }
-              ]
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            replyContent = `APIリクエストエラー: ${parseApiError(data)}`;
-          } else if (data.choices && data.choices[0]) {
-            replyContent = data.choices[0].message.content;
-            pTokens = data.usage?.prompt_tokens || 0;
-            cTokens = data.usage?.completion_tokens || 0;
-          }
-        } else if (providerType === PROVIDERS.ANTHROPIC) {
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01",
-              "anthropic-dangerous-direct-browser-access": "true"
-            },
-            body: JSON.stringify({
-              model: modelId,
-              system: sysPrompt,
-              max_tokens: 1024,
-              messages: [{ role: "user", content: userPrompt }]
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            replyContent = `APIリクエストエラー: ${parseApiError(data)}`;
-          } else if (data.content && data.content[0]) {
-            replyContent = data.content[0].text;
-            pTokens = data.usage?.input_tokens || 0;
-            cTokens = data.usage?.output_tokens || 0;
-          }
-        } else if (providerType === PROVIDERS.GEMINI) {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: sysPrompt }] },
-              contents: [{ role: "user", parts: [{ text: userPrompt }] }]
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            replyContent = `APIリクエストエラー: ${parseApiError(data)}`;
-          } else if (data.candidates && data.candidates[0]?.content?.parts?.[0]) {
-            replyContent = data.candidates[0].content.parts[0].text;
-            pTokens = Math.ceil(userPrompt.length / 3);
-            cTokens = Math.ceil(replyContent.length / 3);
-          }
-        }
+        // 5. APIコール（llmProviderに統一）
+        const result = await callLLMWithPrompt({
+          modelId,
+          systemPrompt: sysPrompt,
+          userPrompt: userPrompt,
+          apiKey,
+        });
+        let replyContent = result.content;
+        let pTokens = result.promptTokens;
+        let cTokens = result.completionTokens;
 
         // BOARDタグのパース
         let parsedIssue = boardState.currentIssue;
         let parsedDirection = boardState.direction;
-        
+
         if (replyContent) {
           const boardRegex = /\[BOARD\]([\s\S]*?)\[\/BOARD\]/;
           const match = replyContent.match(boardRegex);
@@ -392,125 +323,24 @@ ${logsText}
 出力は、ユーザー（しいたけさん）が後からコピペして利用できる簡潔で構造的なMarkdownのみとしてください（前置きの雑談等は不要です）。
 `;
 
-    // 設定されたモデルのプロバイダーを最優先としてリストを順序づける
-    let firstProvider: ProviderType = PROVIDERS.GEMINI;
-    if (summaryModel.includes("gpt") || summaryModel.includes("o1") || summaryModel.includes("o3")) {
-      firstProvider = PROVIDERS.OPENAI;
-    } else if (summaryModel.includes("claude")) {
-      firstProvider = PROVIDERS.ANTHROPIC;
-    } else if (summaryModel.includes("gemini")) {
-      firstProvider = PROVIDERS.GEMINI;
-    }
+    const fallbackResult = await callLLMWithFallback({
+      preferredModelId: summaryModel,
+      systemPrompt: systemInstruction,
+      userPrompt,
+    });
 
-    const providersToTry = [
-      firstProvider,
-      ...[PROVIDERS.OPENAI, PROVIDERS.ANTHROPIC, PROVIDERS.GEMINI].filter(p => p !== firstProvider)
-    ];
-    let summaryText = "";
-    let finalProvider: ProviderType | null = null;
-    let finalModelId = "";
-    let summaryPromptTokens = 0;
-    let summaryCompletionTokens = 0;
-    let summaryCost = 0;
-    
-    let success = false;
-    let errorMsgs: string[] = [];
-
-    for (const prov of providersToTry) {
-      const apiKey = await getApiKey(prov as ProviderType);
-      if (!apiKey) continue;
-
-      let modelId = "gpt-4o-mini";
-      if (prov === firstProvider) {
-        modelId = summaryModel;
-      } else {
-        if (prov === PROVIDERS.OPENAI) modelId = "gpt-4o-mini";
-        else if (prov === PROVIDERS.ANTHROPIC) modelId = "claude-3-5-sonnet-20241022";
-        else if (prov === PROVIDERS.GEMINI) modelId = "gemini-2.5-flash";
-      }
-
-      try {
-        if (prov === PROVIDERS.OPENAI) {
-          const res = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: modelId,
-              messages: [
-                { role: "system", content: systemInstruction },
-                { role: "user", content: userPrompt }
-              ]
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.error?.message || `HTTP ${res.status}`);
-          }
-          summaryText = data.choices?.[0]?.message?.content || "";
-          summaryPromptTokens = data.usage?.prompt_tokens || 0;
-          summaryCompletionTokens = data.usage?.completion_tokens || 0;
-        } else if (prov === PROVIDERS.ANTHROPIC) {
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01",
-              "anthropic-dangerous-direct-browser-access": "true"
-            },
-            body: JSON.stringify({
-              model: modelId,
-              system: systemInstruction,
-              max_tokens: 2000,
-              messages: [{ role: "user", content: userPrompt }]
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.error?.message || `HTTP ${res.status}`);
-          }
-          summaryText = data.content?.[0]?.text || "";
-          summaryPromptTokens = data.usage?.input_tokens || 0;
-          summaryCompletionTokens = data.usage?.output_tokens || 0;
-        } else if (prov === PROVIDERS.GEMINI) {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemInstruction }] },
-              contents: [{ role: "user", parts: [{ text: userPrompt }] }]
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.error?.message || `HTTP ${res.status}`);
-          }
-          summaryText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          summaryPromptTokens = Math.ceil(userPrompt.length / 3);
-          summaryCompletionTokens = Math.ceil(summaryText.length / 3);
-        }
-
-        if (summaryText) {
-          finalProvider = prov as ProviderType;
-          finalModelId = modelId;
-          summaryCost = calculateCost(modelId, summaryPromptTokens, summaryCompletionTokens);
-          success = true;
-          break;
-        }
-      } catch (err) {
-        console.warn(`${prov} での要約生成に失敗しました。次のプロバイダーを試します。: ${err}`);
-        errorMsgs.push(`${prov}: ${String(err)}`);
-      }
-    }
-
-    if (!success) {
-      alert(`議事録の作成に失敗しました。すべてのAPIキーでエラーが発生しました。\n\n詳細:\n${errorMsgs.join("\n")}`);
+    if (!fallbackResult.finalProvider || !fallbackResult.response.content) {
+      alert(`議事録の作成に失敗しました。すべてのAPIキーでエラーが発生しました。\n\n詳細:\n${fallbackResult.errors.join("\n")}`);
       setIsSummarizing(false);
       return;
     }
+
+    const summaryText = fallbackResult.response.content;
+    const finalProvider = fallbackResult.finalProvider;
+    const finalModelId = fallbackResult.finalModelId;
+    const summaryPromptTokens = fallbackResult.response.promptTokens;
+    const summaryCompletionTokens = fallbackResult.response.completionTokens;
+    const summaryCost = calculateCost(finalModelId, summaryPromptTokens, summaryCompletionTokens);
 
     try {
       const nowStr = new Date().toISOString();
@@ -564,7 +394,7 @@ ${logsText}
 
   return (
     <div style={{ display: 'flex', flex: '1 1 0%', minHeight: 0, height: '100%', gap: '24px', overflow: 'hidden' }}>
-      
+
       {/* 左サイドバー: 参加メンバーと進行ステータス */}
       <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
         <div className="panel-paper p-3 text-center mb-2 shrink-0">
@@ -575,9 +405,8 @@ ${logsText}
         <div className="bg-white/80 border border-[var(--color-border-inner)] rounded-lg p-3 text-xs flex flex-col gap-2 shrink-0 shadow-inner">
           <div className="flex justify-between items-center">
             <span className="font-bold text-[var(--color-text)]">状態:</span>
-            <span className={`px-2 py-0.5 rounded font-bold ${
-              isPaused ? "bg-amber-100 text-amber-800" : isGenerating ? "bg-blue-100 text-blue-800 animate-pulse" : "bg-green-100 text-green-800"
-            }`}>
+            <span className={`px-2 py-0.5 rounded font-bold ${isPaused ? "bg-amber-100 text-amber-800" : isGenerating ? "bg-blue-100 text-blue-800 animate-pulse" : "bg-green-100 text-green-800"
+              }`}>
               {isPaused ? "一時停止中" : isGenerating ? "発言生成中" : "待機中"}
             </span>
           </div>
@@ -603,16 +432,15 @@ ${logsText}
             return (
               <div
                 key={member.id}
-                className={`bg-white border-2 rounded p-2 flex items-center gap-2 shadow-sm transition-all ${
-                  isActive ? "border-[var(--color-accent)] ring-2 ring-[var(--color-interrupt)]/20 scale-[1.02]" : "border-[var(--color-border-inner)]"
-                }`}
+                className={`bg-white border-2 rounded p-2 flex items-center gap-2 shadow-sm transition-all ${isActive ? "border-[var(--color-accent)] ring-2 ring-[var(--color-interrupt)]/20 scale-[1.02]" : "border-[var(--color-border-inner)]"
+                  }`}
                 style={{ borderLeft: `6px solid ${getRoleColor(member.role, member.dept_name)}` }}
               >
                 {/* 
                   ★アバター画像サイズ制限バグの修正
                   style属性で直接 '32px' 固定幅と高さを指定し、Tailwindクラス解釈エラーや干渉による巨大化を100%防ぎます。
                 */}
-                <div 
+                <div
                   className="rounded-full bg-gray-100 border border-gray-300 flex items-center justify-center overflow-hidden shrink-0 shadow-inner"
                   style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px' }}
                 >
@@ -631,7 +459,7 @@ ${logsText}
           })}
         </div>
 
-        <button 
+        <button
           onClick={handleStopMeeting}
           className="btn-secondary w-full justify-center shrink-0 py-3 text-red-700 hover:bg-red-50 border-red-200"
         >
@@ -641,7 +469,7 @@ ${logsText}
 
       {/* 中央エリア: タイムラインとアジェンダ、操作パネル */}
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0%', minHeight: 0, height: '100%', overflow: 'hidden' }}>
-        
+
         {/* 会議の議題アジェンダ表示ヘッダー */}
         <div className="panel-paper p-3 mb-3 bg-[#fdfbeb] border-2 border-[var(--color-border-inner)] shrink-0 flex flex-col gap-1">
           <span className="text-[10px] font-bold text-[var(--color-interrupt)] tracking-wider">📌 会議の議題 / AGENDA</span>
@@ -651,20 +479,19 @@ ${logsText}
         </div>
 
         {/* メッセージログ領域 */}
-        <div 
-          className="panel-paper flex-1 p-4 mb-4 bg-white/70 shadow-inner" 
+        <div
+          className="panel-paper flex-1 p-4 mb-4 bg-white/70 shadow-inner"
           style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', minHeight: 0 }}
         >
           {meetingLogs.map((log) => {
             const isSystem = log.sender === "システム";
             return (
-              <div 
-                key={log.id} 
-                className={`flex flex-col p-3 rounded-lg border-2 ${
-                  isSystem 
-                    ? "bg-[#f5e6c8]/40 border-dashed border-[#c8a96e] text-[#5c4636]"
-                    : "bg-white border-[var(--color-border-inner)]"
-                }`}
+              <div
+                key={log.id}
+                className={`flex flex-col p-3 rounded-lg border-2 ${isSystem
+                  ? "bg-[#f5e6c8]/40 border-dashed border-[#c8a96e] text-[#5c4636]"
+                  : "bg-white border-[var(--color-border-inner)]"
+                  }`}
                 style={{
                   alignSelf: isSystem ? "center" : "flex-start",
                   maxWidth: isSystem ? "95%" : "85%",
@@ -674,7 +501,7 @@ ${logsText}
                 {!isSystem && (
                   <div className="flex items-center gap-2 mb-1 border-b border-gray-100 pb-1">
                     <span className="font-bold text-xs text-[var(--color-text)]">{log.sender}</span>
-                    <span 
+                    <span
                       className="text-[9px] border px-1.5 py-0.2 rounded font-bold shadow-xs text-gray-700"
                       style={{ backgroundColor: getRoleColor(log.role, log.sender) }}
                     >
@@ -689,7 +516,7 @@ ${logsText}
           })}
 
           {isGenerating && (
-            <div 
+            <div
               className="flex items-center gap-2.5 p-3 rounded-lg border-2 border-[var(--color-border-inner)] bg-white/80 animate-pulse"
               style={{ alignSelf: "flex-start", maxWidth: "80%", boxShadow: "2px 2px 0px var(--color-border-inner)" }}
             >
@@ -698,7 +525,7 @@ ${logsText}
           )}
 
           {isSummarizing && (
-            <div 
+            <div
               className="flex flex-col items-center justify-center p-6 rounded-lg border-2 border-dashed border-[var(--color-interrupt)] bg-[var(--color-bg)]/20 my-4"
               style={{ alignSelf: "center", width: "90%" }}
             >
@@ -711,7 +538,7 @@ ${logsText}
         </div>
 
         {/* コントロールフッター */}
-        <div 
+        <div
           className="border-t-2 border-[var(--color-border-inner)] bg-[var(--color-panel)] flex justify-between items-center rounded-lg shadow-sm"
           style={{ padding: '12px 20px', flexShrink: 0 }}
         >
@@ -747,9 +574,9 @@ ${logsText}
 
       {/* 右サイドバー: リアルタイムホワイトボード */}
       <div className="w-72 shrink-0 flex flex-col gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
-        <div 
+        <div
           className="panel-paper flex-1 bg-[#fbfcf7] border-4 border-[var(--color-border-outer)] rounded-xl p-4 flex flex-col gap-4 overflow-hidden"
-          style={{ 
+          style={{
             boxShadow: "6px 6px 0px var(--color-border-outer)",
             backgroundImage: "radial-gradient(#e5e7eb 1.5px, transparent 1.5px)",
             backgroundSize: "20px 20px"
@@ -759,13 +586,13 @@ ${logsText}
             <span className="font-title text-2xl font-bold text-[var(--color-border-outer)] flex items-center gap-1.5">📋 WHITEBOARD</span>
             <span className="text-[9px] bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full font-bold select-none">REALTIME</span>
           </div>
-          
+
           <div className="flex-1 flex flex-col gap-4 overflow-y-auto" style={{ fontFamily: "'M PLUS Rounded 1c', sans-serif" }}>
             <div className="bg-blue-50/70 p-3 rounded-lg border-2 border-blue-200 shadow-sm flex flex-col gap-1 shrink-0">
               <span className="font-bold text-xs text-blue-900 flex items-center gap-1">🚨 現在の重要課題:</span>
               <p className="text-xs text-gray-700 leading-relaxed font-bold whitespace-pre-wrap">{boardState.currentIssue}</p>
             </div>
-            
+
             <div className="bg-green-50/70 p-3 rounded-lg border-2 border-green-200 shadow-sm flex flex-col gap-1 shrink-0">
               <span className="font-bold text-xs text-green-900 flex items-center gap-1">💡 考える方針 / 合意方向:</span>
               <p className="text-xs text-gray-700 leading-relaxed font-bold whitespace-pre-wrap">{boardState.direction}</p>
