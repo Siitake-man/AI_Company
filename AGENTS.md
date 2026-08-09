@@ -65,4 +65,12 @@ SQLiteには一切書き込まない。これはセキュリティ上の絶対�
 
 ---
 
+
+
+ENV: Windows.
+Always use 'cmd /c' for all shell executions to ensure the process terminates correctly and sends an EOF signal.
+Example: Use 'cmd /c pip list' instead of just 'pip list'.
+Avoid interactive shells.
+
+
 *詳細な行動規範（ハードコード禁止・Codebase-memory-mcp活用・ドキュメント更新ルール等）は `docs/design/AI_RULES.md` を参照。*

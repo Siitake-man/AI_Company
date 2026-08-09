@@ -52,7 +52,12 @@ ${summaryText}
       <div className="panel-paper p-4 mb-4 shrink-0 flex flex-col gap-2">
         <div className="flex justify-between items-center">
           <h2 className="font-title text-2xl font-bold text-[var(--color-text)]">📝 議事録サマリー</h2>
-          <span className="mock-badge-saved">作成完了</span>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+              🌱 成長日誌に自動学習ログ保存済み
+            </span>
+            <span className="mock-badge-saved">作成完了</span>
+          </div>
         </div>
         <div className="flex flex-wrap gap-4 text-xs text-[var(--color-text-sub)] items-center">
           <span>📌 議題: {meetingAgenda}</span>

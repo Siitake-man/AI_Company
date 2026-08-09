@@ -260,4 +260,29 @@ export async function callLLMWithFallback(params: {
         finalModelId: "",
         errors,
     };
-}
+}
+
+/** 統一エントリーポイント: 単一プロンプトまたは会話履歴を持つリクエストを柔軟に処理 */
+export async function callLLM(params: {
+    modelId: string;
+    systemPrompt: string;
+    userPrompt?: string;
+    messages?: ChatMessage[];
+    apiKey: string;
+}): Promise<LLMResponse> {
+    if (params.messages && params.messages.length > 0) {
+        return callLLMWithHistory({
+            modelId: params.modelId,
+            systemPrompt: params.systemPrompt,
+            messages: params.messages,
+            apiKey: params.apiKey,
+        });
+    }
+    return callLLMWithPrompt({
+        modelId: params.modelId,
+        systemPrompt: params.systemPrompt,
+        userPrompt: params.userPrompt || "",
+        apiKey: params.apiKey,
+    });
+}
+
