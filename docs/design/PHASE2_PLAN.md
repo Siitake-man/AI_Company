@@ -129,7 +129,7 @@ const speakerPrompt = PromptTemplate.fromTemplate(`
 
 ## 2. RAG（検索拡張生成）導入計画
 
-> 未着手。`src/lib/rag/types.ts` の型スタブのみ。LanceDB（`vectordb`）は未インストール。
+> RAG本体は未着手だが、2026-08-11に基盤の最小実装を開始した。`src/lib/rag/types.ts` の契約型と `chunker.ts` の決定的チャンク分割を追加済み。LanceDB（`vectordb`）と埋め込みプロバイダーは未導入。
 
 ### 2.1 現状の課題
 
@@ -246,6 +246,7 @@ flowchart TD
 | 🟡 P1 | RAG: LanceDBの導入 + `project_knowledge` テーブル作成 | 30分 | ①LanceDBインストール → ②スキーマ定義 → ③ダミーデータ投入テスト |
 | ✅ 完了 | Phase 2b: `prompts.ts` によるテンプレート管理 | — | 2026-08-11 完了 |
 | ✅ 完了 | SQLite Version 3整合化マイグレーション | — | 2026-08-11完了。`summary_model`正式化、運用テーブルのFK再構築、ロールバックfixture検証 |
+| ✅ 基盤完了 | RAG基盤：SQLiteソースadapterと決定的チャンク分割 | — | `KnowledgeSource` → `KnowledgeDocument[]` の変換、ロール分類、回帰テスト（2026-08-11） |
 | 🟢 P2 | RAG: 議事録保存時に自動チャンク化＋ベクトル保存（自動学習パイプライン） | 30分 | ①チャンク戦略の決定 → ②`SummaryScreen` 保存フックへの追加 |
 | 🟢 P2 | RAG: role_categoryフィルターによる「違うレンズ」検索の実装 | 20分 | ①検索関数の作成 → ②`getMergedSystemPrompt` への統合 |
 | 🔵 P3 | Phase 2c: ワークフロー型会議への移行 | 60分 | ①`workflow.ts` 作成 → ②既存ループの置き換え → ③結合テスト |

@@ -8,7 +8,7 @@ Version 1.0 / 依存関係ベース（時間ベースではない）
 
 - 本ロードマップは**時間見積もりではなく、依存関係（前工程が終わらないと次に進めない）で構成する**。
 - 各ノードの完了自体が一つのチェックポイントであり、曜日・時間で区切らない。
-- Phase 1 は完了済み。Phase 2 は Phase 2a（LangChain.js 導入）・Phase 2b（PromptTemplate 標準化）・SQLite Version 3整合化が完了。次の依存ノードであるRAGは未着手。
+- Phase 1 は完了済み。Phase 2 は Phase 2a（LangChain.js 導入）・Phase 2b（PromptTemplate 標準化）・SQLite Version 3整合化が完了。RAG基盤（SQLiteソースadapter・チャンク契約）は完了し、LanceDB統合は未着手。
 
 ---
 
@@ -103,7 +103,7 @@ flowchart TD
 1. **LangChain.js 導入（Phase 2a）: 完了**。`@langchain/core` + `@langchain/openai` + `@langchain/google-genai` を導入し、`src/lib/llmProvider.ts` に統一。OpenAI / Gemini は ChatModel で呼び出し、Anthropic は Tauri バンドル非互換のため自前fetchを維持
 2. **PromptTemplate 標準化（Phase 2b）: 完了**。`src/lib/langchain/prompts.ts` のテンプレートを `MeetingScreen.tsx` の会議発言生成へ統合し、回帰テストを追加
 3. **SQLite Version 3整合化: 完了（2026-08-11）**。`users.summary_model` をマイグレーションへ移し、`member_learnings` / `api_usage_logs` をデータコピー方式で再構築して外部キーを保証
-4. **RAG + LanceDB 導入: 未着手**。`src/lib/rag/types.ts` の型スタブのみ。`vectordb`（LanceDB）は未インストール
+4. **RAG基盤（SQLiteソースadapter・チャンク契約）: 完了（2026-08-11）**。`meeting_summaries` / `member_learnings` の読み出し、ロール分類、`KnowledgeSource` → `KnowledgeDocument[]` の決定的分割とテストを追加。LanceDBは未導入
 5. **会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録
 6. **検索→コンテキスト注入の統合**: 4層マージの第2層（プロジェクト価値観）の後にRAG結果を動的に注入
 7. **コアプロフィールの本格作り込み**: 他AIからの情報抽出プロンプト付きUI
