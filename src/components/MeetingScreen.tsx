@@ -6,6 +6,7 @@ import { getMergedSystemPrompt } from "../lib/promptMerger";
 import { calculateCost } from "../lib/utils";
 import { callLLMWithPrompt, callLLMWithFallback, resolveApiKey } from "../lib/llmProvider";
 import { buildSpeakerPrompt } from "../lib/langchain/prompts";
+import { closeMeeting, createMeeting, insertMeetingUsageLog } from "../lib/meetingPersistence";
 
 type MeetingScreenProps = {
   dbInstance: Database | null;
@@ -51,6 +52,9 @@ export const MeetingScreen = ({
   const [totalCompletionTokens, setTotalCompletionTokens] = useState<number>(0);
   const [totalCost, setTotalCost] = useState<number>(0);
   const [turnCount, setTurnCount] = useState<number>(0);
+  // SQLite Version 3ではapi_usage_logs.meeting_idがmeetings(id)を参照する。
+  // 会議開始時に実IDを確保し、発言中の利用量ログへ伝播させる。
+  const [meetingId, setMeetingId] = useState<number | null>(null);
   const maxTurns = activeMembers.length * 3; // 各メンバー最大3ターン
   const [boardState, setBoardState] = useState<{ currentIssue: string; direction: string }>({
     currentIssue: "議論進行中。発言から自動で要点を抽出します...",
@@ -78,11 +82,55 @@ export const MeetingScreen = ({
     setTotalPromptTokens(0);
     setTotalCompletionTokens(0);
     setTotalCost(0);
+    setMeetingId(null);
     setBoardState({
       currentIssue: "議論進行中。発言から自動で要点を抽出します...",
       direction: "アジェンダに沿って発散・収束を行います"
     });
   }, [meetingAgenda, meetingMode]);
+
+  // 会議開始時に親行を作成する。Version 3のFKにより、発言中の
+  // api_usage_logsを仮IDへ紐付けることはできないため、実IDが取れるまで
+  // 自動発言ループを開始しない。
+  useEffect(() => {
+    let cancelled = false;
+    const meetingDatabase = dbInstance;
+
+    const initializeMeeting = async () => {
+      if (!meetingDatabase || selectedProjectId == null || !meetingMode) return;
+
+      try {
+        const createdMeetingId = await createMeeting(
+          meetingDatabase,
+          selectedProjectId,
+          meetingMode,
+          new Date().toISOString()
+        );
+        if (!cancelled) setMeetingId(createdMeetingId);
+      } catch (err) {
+        console.error("Meeting initialization failed", err);
+        if (!cancelled) {
+          setMeetingLogs(prev => [
+            ...prev,
+            {
+              id: Date.now(),
+              sender: "システム",
+              role: "エラー",
+              avatar: "",
+              content: `⚠️ 会議の保存準備に失敗しました。会議を開始できません: ${String(err)}`,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+          ]);
+          setIsPaused(true);
+        }
+      }
+    };
+
+    void initializeMeeting();
+    return () => {
+      cancelled = true;
+    };
+  }, [dbInstance, selectedProjectId, meetingMode, meetingAgenda]);
 
   // チャットスクロール
   useEffect(() => {
@@ -91,13 +139,16 @@ export const MeetingScreen = ({
 
   // 自動議論進行の主要ループ
   useEffect(() => {
+    if (!dbInstance) return;
+    const meetingDatabase = dbInstance;
+    if (meetingId === null) return;
+    const activeMeetingId: number = meetingId;
     // ガード句 (ターン上限到達時もループ停止)
     if (
       isPaused ||
       isGenerating ||
       isSummarizing ||
       activeMembers.length === 0 ||
-      !dbInstance ||
       meetingLogs.length === 0 ||
       turnCount >= maxTurns
     ) {
@@ -112,7 +163,7 @@ export const MeetingScreen = ({
 
       try {
         // 1. システムプロンプトの取得 (4層マージ)
-        const sysPrompt = await getMergedSystemPrompt(dbInstance as Database, {
+        const sysPrompt = await getMergedSystemPrompt(meetingDatabase, {
           userId: 1,
           projectId: selectedProjectId!,
           memberId: currentMember.id
@@ -201,10 +252,16 @@ export const MeetingScreen = ({
           setTotalCompletionTokens(prev => prev + cTokens);
           setTotalCost(prev => prev + cost);
 
-          await dbInstance?.execute(
-            "INSERT INTO api_usage_logs (member_id, meeting_id, provider, model_id, prompt_tokens, completion_tokens, cost_usd, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [currentMember.id, 999, providerType, modelId, pTokens, cTokens, cost, new Date().toISOString()]
-          );
+          await insertMeetingUsageLog(meetingDatabase, {
+            memberId: currentMember.id,
+            meetingId: activeMeetingId,
+            provider: providerType,
+            modelId,
+            promptTokens: pTokens,
+            completionTokens: cTokens,
+            costUsd: cost,
+            createdAt: new Date().toISOString(),
+          });
         }
 
         // 7. 会議ログに追加
@@ -275,7 +332,7 @@ export const MeetingScreen = ({
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [isPaused, isGenerating, isSummarizing, activeMemberIdx, dbInstance, activeMembers, meetingLogs, turnCount]);
+  }, [isPaused, isGenerating, isSummarizing, activeMemberIdx, dbInstance, activeMembers, meetingId, meetingLogs, turnCount]);
 
   // 会議を締めくくってサマリーを作成する処理 (G8 - 堅牢なエラーフォールバック仕様)
   const handleGenerateSummary = async (forceAuto: boolean = false) => {
@@ -338,23 +395,21 @@ ${logsText}
 
     try {
       const nowStr = new Date().toISOString();
-      const meetRes = await dbInstance?.execute(
-        "INSERT INTO meetings (project_id, mode, status, started_at, ended_at) VALUES (?, ?, ?, ?, ?)",
-        [selectedProjectId, meetingMode, "終了", nowStr, nowStr]
-      );
-      const meetingId = meetRes?.lastInsertId || 0;
+      if (dbInstance && meetingId === null) {
+        throw new Error("会議IDが未確定のため、議事録を保存できません");
+      }
+
+      if (dbInstance && meetingId !== null) {
+        await closeMeeting(dbInstance, meetingId, nowStr);
+      }
 
       await dbInstance?.execute(
         "INSERT INTO meeting_summaries (meeting_id, mode, issues, decisions, next_actions, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [meetingId, meetingMode || "探索", "論点整理", summaryText, "次回ToDo", nowStr, nowStr]
+        [meetingId ?? 0, meetingMode || "探索", "論点整理", summaryText, "次回ToDo", nowStr, nowStr]
       );
 
-      for (const m of activeMembers) {
-        await dbInstance?.execute(
-          "INSERT INTO member_learnings (member_id, meeting_id, content, created_at) VALUES (?, ?, ?, ?)",
-          [m.id, meetingId, `議題「${meetingAgenda}」の会議で決定: ${meetingMode === "exploration" ? "アイデア展開の合意" : "実行計画の合意"}`, nowStr]
-        );
-      }
+      // AIが生成した候補や定型文は、ユーザー確認前に学習へ登録しない。
+      // S8で確定済みのdecisionsを保存するUIと専用経路は別タスクで実装する。
 
       // サマリー生成にかかったコストを最終累積に加算して callback を呼ぶ
       const finalPromptTokens = totalPromptTokens + summaryPromptTokens;
@@ -364,10 +419,18 @@ ${logsText}
       // API利用料金 of ログ挿入 (サマリー生成分)
       if (summaryPromptTokens > 0 && finalProvider) {
         const logMemberId = activeMembers[0]?.id || 1; // 外国キー(FK)制約エラーを防ぐため、実在するメンバーIDを使用します
-        await dbInstance?.execute(
-          "INSERT INTO api_usage_logs (member_id, meeting_id, provider, model_id, prompt_tokens, completion_tokens, cost_usd, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          [logMemberId, meetingId, finalProvider, finalModelId, summaryPromptTokens, summaryCompletionTokens, summaryCost, nowStr]
-        );
+        if (dbInstance && meetingId !== null) {
+          await insertMeetingUsageLog(dbInstance, {
+            memberId: logMemberId,
+            meetingId,
+            provider: finalProvider,
+            modelId: finalModelId,
+            promptTokens: summaryPromptTokens,
+            completionTokens: summaryCompletionTokens,
+            costUsd: summaryCost,
+            createdAt: nowStr,
+          });
+        }
       }
 
       onSummaryGenerated(summaryText, finalPromptTokens, finalCompletionTokens, finalCostVal);
@@ -380,8 +443,15 @@ ${logsText}
     }
   };
 
-  const handleStopMeeting = () => {
+  const handleStopMeeting = async () => {
     if (confirm("会議を終了してホームに戻りますか？今回の議論内容は破棄されます。")) {
+      if (dbInstance && meetingId !== null) {
+        try {
+          await closeMeeting(dbInstance, meetingId, new Date().toISOString());
+        } catch (err) {
+          console.error("Meeting close failed", err);
+        }
+      }
       setCurrentScreen("home");
     }
   };

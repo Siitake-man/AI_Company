@@ -8,7 +8,9 @@ Version 1.0 / 依存関係ベース（時間ベースではない）
 
 - 本ロードマップは**時間見積もりではなく、依存関係（前工程が終わらないと次に進めない）で構成する**。
 - 各ノードの完了自体が一つのチェックポイントであり、曜日・時間で区切らない。
-- Phase 1 は完了済み。Phase 2 は Phase 2a（LangChain.js 導入）・Phase 2b（PromptTemplate 標準化）・SQLite Version 3整合化が完了。RAG基盤（SQLiteソースadapter・チャンク契約・埋め込み/検索adapter境界）は完了し、LanceDB統合は未着手。
+- Phase 1は機能実装済みだが、2026-08-11のholistic reviewでS7割り込み・会議ログ永続化・S8学習確認などの仕様差分が判明し、品質是正タスクを追加した。Phase 2はPhase 2a（LangChain.js導入）・Phase 2b（PromptTemplate標準化）・SQLite Version 3整合化が完了。RAG基盤（SQLiteソースadapter・チャンク契約・埋め込み/検索adapter境界）は完了し、LanceDB統合は未着手。
+
+レビュー所見のタスク一覧と依存関係は [REVIEW_ACTION_REGISTER_20260811.md](./REVIEW_ACTION_REGISTER_20260811.md) を正本とする。
 
 ---
 
@@ -46,6 +48,11 @@ flowchart TD
     style H fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style I fill:#86efac,stroke:#c8a96e  %% 完了カラー
     style J fill:#fdf6e3,stroke:#c8a96e
+    style D4 fill:#fef3c7,stroke:#c8a96e  %% review follow-up
+    style E5 fill:#fef3c7,stroke:#c8a96e  %% review follow-up
+    style F7 fill:#fef3c7,stroke:#c8a96e  %% review follow-up
+    style G8 fill:#fef3c7,stroke:#c8a96e  %% review follow-up
+    style I fill:#fef3c7,stroke:#c8a96e  %% review follow-up
 ```
 
 ---
@@ -60,14 +67,14 @@ flowchart TD
 | C9 | S9 設定画面 | ✅ 2026-07-13完了（APIキー管理＋コアプロフィール編集機能の実装完了） |
 | D2 | S2 プロジェクト一覧 | ✅ 2026-07-15完了（複数プロジェクトの作成・一覧表示実装済） |
 | D3 | S3 プロジェクト作成 | ✅ 2026-07-15完了（目的・価値観の登録、コンテキスト編集機能の実装済） |
-| D4 | S4 チーム管理 | ✅ 2026-07-15完了（メンバー一覧クラッシュの修正・表示確認済） |
-| E5 | S5 メンバーエディタ | ✅ 2026-07-15完了（継承元パネルの表示、および成長日誌の確認・削除機能の実装完了） |
+| D4 | S4 チーム管理 | ⚠️ メンバー一覧は表示可能。ただしメンバー追加ハンドラ、部署タブ、会議モード選択への導線が未完了 |
+| E5 | S5 メンバーエディタ | ⚠️ 継承元表示は実装済み。成長日誌の手動追記・編集・削除は未完了 |
 | E6 | S6 1on1チャット | ✅ 2026-07-16完了（Jules導入のセッション化に伴うDBマイグレーション漏れ修正と開通確認完了） |
 | F7A | 会議モード選択 | ✅ 2026-07-16完了（HomeScreenからの起動、探索/収束選択とMeetingScreenへの遷移確認済） |
-| F7 | S7 会議モード | ✅ 2026-07-16完了（ラウンドロビン発言、一時停止、UIリデザイン、未設定APIキーの安全ガード実装済） |
-| G8 | S8 議事録・サマリー | ✅ 2026-07-16完了（新規UI実装、決定事項保存時の自動学習シミュレート機能済） |
+| F7 | S7 会議モード | ⚠️ ラウンドロビン発言・一時停止・APIキーガードは実装済み。割り込み状態機械、10秒強調、連鎖上限3の永続化は未完了 |
+| G8 | S8 議事録・サマリー | ⚠️ サマリー生成・エクスポートは実装済み。構造化JSON、会議ログ/参加者保存、ユーザー確定決定事項の学習経路は未完了 |
 | H | Markdownエクスポート | ✅ 2026-07-16完了（tauri-plugin-fs / dialogを利用して実装済） |
-| I | Phase 1完了・社内発表 | ✅ 2026-07-16完了（S1〜S8のUIリデザイン、一連の流れの結合テスト完了） |
+| I | Phase 1完了・社内発表 | ⚠️ 機能実装済み。ただしholistic reviewでP0/P1の品質・仕様差分を検出。是正完了後に正式完了とする |
 | J | Phase 2検討開始 | ✅ 2026-07-20完了（PHASE2_PLAN.md作成、Phase 2a着手） |
 
 ---
@@ -97,18 +104,23 @@ flowchart TD
 | 2026-08-11 | Codex | Phase 2a・Phase 2b（PromptTemplate）完了、RAG未着手の実装状況を同期。 |
 | 2026-08-11 | Codex | SQLite Version 3整合化マイグレーションを実装。起動時DDLを削除し、データコピー・ロールバックfixtureで検証。 |
 | 2026-08-11 | Codex | RAGの埋め込みプロバイダー契約・OpenAI adapter・プロジェクト単位のベクトル検索契約（インメモリ実装付き）を追加。 |
+| 2026-08-11 | Codex | Holistic reviewを反映。会議ID/FK不整合をP0として修正し、S7割り込み、会議ログ永続化、ユーザー確認付き学習、CSP/権限、LLMエラー処理、UI SSoT逸脱を是正タスクへ登録。 |
+| 2026-08-11 | Codex | セッション終了時点の引き継ぎを確定。P0修正・設計同期・検証成功を記録し、次回はS8確定事項入力/会議ログ永続化から再開する。 |
 
 
 ## Phase 2（来月以降・優先順位順）
 
-1. **LangChain.js 導入（Phase 2a）: 完了**。`@langchain/core` + `@langchain/openai` + `@langchain/google-genai` を導入し、`src/lib/llmProvider.ts` に統一。OpenAI / Gemini は ChatModel で呼び出し、Anthropic は Tauri バンドル非互換のため自前fetchを維持
-2. **PromptTemplate 標準化（Phase 2b）: 完了**。`src/lib/langchain/prompts.ts` のテンプレートを `MeetingScreen.tsx` の会議発言生成へ統合し、回帰テストを追加
-3. **SQLite Version 3整合化: 完了（2026-08-11）**。`users.summary_model` をマイグレーションへ移し、`member_learnings` / `api_usage_logs` をデータコピー方式で再構築して外部キーを保証
-4. **RAG基盤（SQLiteソースadapter・チャンク・埋め込み/検索adapter契約）: 完了（2026-08-11）**。`meeting_summaries` / `member_learnings` の読み出し、ロール分類、`KnowledgeSource` → `KnowledgeDocument[]` の決定的分割、OpenAI Embeddings adapter、プロジェクト単位のベクトル検索契約とテスト用インメモリ実装を追加。LanceDBは未導入
-5. **LanceDB adapter + 会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録
-6. **検索→コンテキスト注入の統合**: 4層マージの第2層（プロジェクト価値観）の後にRAG結果を動的に注入
-7. **コアプロフィールの本格作り込み**: 他AIからの情報抽出プロンプト付きUI
-8. **ワークフロー型会議（Phase 2c）**: `RunnableSequence` による発言生成チェーン
-9. **以降**: 会議モードの途中切り替え / 非同期会議 / ローカルLLM / MCPサーバー化
+1. **品質是正 P0: 会議ID/FK経路**: ✅ 2026-08-11完了。会議開始時に親行を作成し、実ID確定後に発言を開始する。DB実機回帰テストは追加タスク
+2. **品質是正 P1: 会議ログ・S7・S8学習・構造化議事録**: 未着手。詳細は `REVIEW_ACTION_REGISTER_20260811.md`
+3. **品質是正 P1: CSP/Capabilities・LLMエラー構造化・UI SSoT**: 未着手。セキュリティ境界を先に確定する
+4. **LangChain.js 導入（Phase 2a）: 完了**。`@langchain/core` + `@langchain/openai` + `@langchain/google-genai` を導入し、`src/lib/llmProvider.ts` に統一。Anthropicは自前fetchを維持
+5. **PromptTemplate 標準化（Phase 2b）: 完了**。`src/lib/langchain/prompts.ts` のテンプレートを会議発言生成へ統合し、回帰テストを追加
+6. **SQLite Version 3整合化: 完了（2026-08-11）**。`users.summary_model` をマイグレーションへ移し、運用テーブルを再構築して外部キーを保証
+7. **RAG基盤（SQLiteソースadapter・チャンク・埋め込み/検索adapter契約）: 完了（2026-08-11）**。LanceDBは未導入
+8. **LanceDB adapter + 会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録
+9. **検索→コンテキスト注入の統合**: 4層マージの第2層（プロジェクト価値観）の後にRAG結果を動的に注入
+10. **コアプロフィールの本格作り込み**: 他AIからの情報抽出プロンプト付きUI
+11. **ワークフロー型会議（Phase 2c）**: `RunnableSequence` による発言生成チェーン
+12. **以降**: 会議モードの途中切り替え / 非同期会議 / ローカルLLM / MCPサーバー化
 
 詳細は `docs/design/PHASE2_PLAN.md` を参照。

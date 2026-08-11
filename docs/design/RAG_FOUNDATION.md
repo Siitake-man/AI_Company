@@ -24,10 +24,11 @@
 
 `src/lib/rag/embeddings.ts` は、実行時に渡されたAPIキーだけでOpenAI Embeddings APIを呼び出し、応答の入力順・ベクトル数・値を検証する。APIキーは `KnowledgeDocument` やDBへ保存しない。
 
-`src/lib/rag/vectorStore.ts` は `KnowledgeVectorStore` 契約と、テスト・オフライン開発用の `InMemoryKnowledgeVectorStore` を提供する。検索は必ず `project_id` で絞り込み、コサイン類似度と `topK` / `minScore` を適用する。LanceDBは同じ契約を実装する次の永続化adapterとして追加する。
+`src/lib/rag/vectorStore.ts` は `KnowledgeVectorStore` 契約と、テスト・オフライン開発用の `InMemoryKnowledgeVectorStore` を提供する。検索は必ず `project_id` で絞り込み、コサイン類似度と `topK` / `minScore` を適用する。レビューで、DESIGN_SPECの「同じ倉庫、違うレンズ」を契約だけで担保できていないことが判明したため、次のadapter拡張で `role_category` / `department_id` フィルターを `VectorSearchOptions` に追加する。LanceDBは同じ契約を実装する次の永続化adapterとして追加する。
 
 ## 次の実装単位
 
 1. LanceDB adapter（`KnowledgeVectorStore` の永続実装）
-2. 会議保存後の取り込みhook
-3. `getMergedSystemPrompt` への検索コンテキスト注入
+2. `role_category` / `department_id` を含む検索契約の拡張
+3. 会議保存後の取り込みhook
+4. `getMergedSystemPrompt` への検索コンテキスト注入

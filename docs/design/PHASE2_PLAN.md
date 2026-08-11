@@ -2,9 +2,9 @@
 
 ## AI Team Builder（AIカンパニー）Phase 2 設計
 
-**バージョン:** 0.2（見直し版）
+**バージョン:** 0.3（レビュー反映版）
 **作成日:** 2026-07-20
-**最終更新日:** 2026-07-20
+**最終更新日:** 2026-08-11
 **関連ドキュメント:** [DESIGN_SPEC.md](./DESIGN_SPEC.md) §9, [DATA_SCHEMA.md](./DATA_SCHEMA.md) §6
 
 ---
@@ -29,7 +29,7 @@ Phase 2 ではこれらの「動くけど粗い」部分を、保守性・拡張
 |---|---|---|
 | LLM呼び出し | Phase 2aでOpenAI/GeminiはLangChain化。Anthropicのみ自前fetch | 新規プロバイダーは `llmProvider.ts` 内へカプセル化する |
 | プロンプト構築 | Phase 2bで `PromptTemplate` へ分離済み | サマリー生成等、残るプロンプトの段階的なテンプレート化 |
-| エラーハンドリング | 各APIのエラーレスポンスを個別にパース | 共通化されていない、リトライなし |
+| エラーハンドリング | 各APIのエラーレスポンスを個別にパースし、文字列を `content` に返す経路が残る | 構造化Resultへ分離し、エラーを会話ログへ保存しない |
 | トークン管理 | 自前で `prompt_tokens / completion_tokens` を集計 | LangChain側で標準提供される機能の再実装 |
 | ストリーミング | 未対応（全レスポンス待ち） | UX改善の余地大 |
 
@@ -47,6 +47,21 @@ Phase 2d: ストリーミング対応 + エージェント化
 **進捗:** Phase 2a 完了（2026-07-20）/ Phase 2b 完了（2026-08-11）/ Phase 2c・2d 未着手
 
 SQLite Version 3の整合化マイグレーションは完了（2026-08-11）。`users.summary_model` を正式DDLへ移し、既存の `member_learnings` / `api_usage_logs` をデータコピー方式で再構築して外部キーを保証した。詳細は [SQLITE_MIGRATION_V3.md](./SQLITE_MIGRATION_V3.md) を参照。
+
+## 1.4 Holistic review後の横断是正（2026-08-11）
+
+Phase 2の次タスクへ進む前に、Phase 1の実行時整合性と仕様契約を是正する。P0の会議ID/FK経路は修正済みだが、以下は未完了である。
+
+| 優先度 | 課題 | 方針 | 状態 |
+|---|---|---|---|
+| P0 | 会議中の `meeting_id=999` | 会議開始時に親行を作成し、実ID確定後に発言ループ開始 | ✅ 完了（2026-08-11） |
+| P1 | `meeting_messages` / `meeting_participants` 未保存 | 会議終了時に議事録と同じトランザクションで保存 | 未着手 |
+| P1 | S7割り込み状態機械未実装 | 10秒強調・一時停止・連鎖最大3回をDB契約と接続 | 未着手 |
+| P1 | AI決定事項の無断学習 | AI生成の自動学習経路は停止済み。S8でユーザー確定 `decisions` を入力・保存し、確定後のみ学習 | 進行中 |
+| P1 | CSP/SQL/fs権限 | 許可先と保存先を最小化し、`csp: null` と再帰書込みを廃止 | 未着手 |
+| P1 | LLMエラーの文字列成功扱い | `{ ok, content, error }` 境界とモデル判定の一元化 | 未着手 |
+
+タスクの依存関係と完了条件は [REVIEW_ACTION_REGISTER_20260811.md](./REVIEW_ACTION_REGISTER_20260811.md) を参照する。
 
 #### Phase 2a: ChatModel ラッパー（最優先）
 
@@ -241,8 +256,11 @@ flowchart TD
 
 | 優先度 | タスク | 想定工数 | 5分タスク分割例 |
 |---|---|---|---|
-| 🔴 P0 | Phase 2a: `@langchain/core` + 各プロバイダーのインストール | 15分 | ①パッケージ追加 → ②`llm.ts` 作成 → ③MeetingScreenの置き換え |
-| 🔴 P0 | `src/lib/langchain/llm.ts` 作成とMeetingScreenの置き換え | 20分 | 同上 |
+| 🔴 P0 | 会議ID/FK経路のDB実機回帰テスト | 15分 | ①V3 fixtureへ会議を作成 → ②利用量ログINSERT → ③発言保存を確認 |
+| 🔴 P1 | 会議ログ・参加者・構造化議事録の永続化 | 30分 | ①messages/participants INSERT → ②summary JSON検証 → ③同一トランザクション化 |
+| 🔴 P1 | S7割り込み状態機械とユーザー確認済み学習 | 30分 | ①状態enum → ②連鎖上限3 → ③S8決定保存時のみlearning INSERT |
+| 🔴 P1 | CSP/Capabilities・LLMエラー境界・UI SSoT是正 | 45分 | ①権限表 → ②Result型 → ③トークン監査 |
+| 🟡 P1 | Phase 2a: `@langchain/core` + 各プロバイダーのインストール | 完了 | 実装済み。新規プロバイダーは `llmProvider.ts` の契約内へ追加 |
 | 🟡 P1 | RAG: LanceDBの導入 + `project_knowledge` テーブル作成 | 30分 | ①LanceDBインストール → ②スキーマ定義 → ③ダミーデータ投入テスト |
 | ✅ 完了 | Phase 2b: `prompts.ts` によるテンプレート管理 | — | 2026-08-11 完了 |
 | ✅ 完了 | SQLite Version 3整合化マイグレーション | — | 2026-08-11完了。`summary_model`正式化、運用テーブルのFK再構築、ロールバックfixture検証 |
@@ -306,3 +324,4 @@ flowchart TD
 | 2026-07-20 | Antigravity | v0.2: 見直し版。LangChain.js導入は Phase 2a までに留め、RAG（LanceDB）は今週着手しない方針を明確化。事前準備チェックリストを更新。 |
 | 2026-08-11 | Codex | Phase 2a・Phase 2b完了、RAG未着手の実装状況を同期。 |
 | 2026-08-11 | Codex | RAGの埋め込みプロバイダー契約・OpenAI adapter・プロジェクト単位のベクトル検索契約（インメモリ実装付き）を追加。 |
+| 2026-08-11 | Codex | Holistic reviewを反映。P0会議ID/FK経路を修正し、会議ログ永続化・S7割り込み・ユーザー確認済み学習・セキュリティ境界をPhase 2の最優先是正タスクへ移動。 |

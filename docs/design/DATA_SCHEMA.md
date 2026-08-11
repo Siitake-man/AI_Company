@@ -111,6 +111,8 @@ CREATE TABLE meetings (
 );
 ```
 
+> **レビュー後の保存契約（2026-08-11）:** `meetings` は会議開始時に作成し、発言中の `meeting_messages` / `api_usage_logs` と終了時の `meeting_summaries` の親行として先に存在しなければならない。未確定ID・仮ID（例: `999`）を子テーブルへ保存してはならない。`mode` の正規値は設計上 `'探索'` / `'収束'` とし、現行実装の英語値（`exploration` / `convergence`）は互換整理タスクで統一する。
+
 ### 2.2 meeting_participants（会議参加メンバー）
 
 ```sql
@@ -139,6 +141,8 @@ CREATE TABLE meeting_messages (
     FOREIGN KEY (member_id) REFERENCES members(id)
 );
 ```
+
+`meeting_messages` は会議中の全AI発言、ユーザー割り込み、割り込みへの応答を会議終了時に永続化する。表示用のReact stateだけを正本にしてはならない。`meeting_participants` も同じ会議保存処理で、開始時点の参加メンバーを登録する。
 
 ### 2.4 chat_sessions（1on1チャットのセッション）
 
@@ -190,6 +194,8 @@ CREATE TABLE meeting_summaries (
 );
 ```
 
+`issues`、`pro_con_table`、`facts`、`open_concerns`、`member_agreement_levels`、`decisions`、`next_actions` は、それぞれ設計されたJSON形式で保存する。`decisions` はユーザー確認前は空配列（または空JSON）とし、AIが生成したMarkdown全文や定型文を決定事項として保存しない。ユーザーが確定して保存した場合のみ、確定済み決定を `member_learnings` へ登録する。
+
 ---
 
 ## 4. 設定系テーブル
@@ -225,6 +231,8 @@ CREATE TABLE app_settings (
 
 Version 2以前にランタイムDDLで作成されたテーブルにも、正式な外部キー制約を適用する。SQLiteでは既存テーブルのFK句をALTERできないため、`__v3`一時テーブルへ主キーを含む全データをコピーし、旧テーブルをリネームする方式を採用する。`users.summary_model` もこのマイグレーションで正式化し、アプリ起動時の `ALTER TABLE` は行わない。
 
+既存 `users.summary_model` の値が存在する場合は、デフォルト値で上書きせず、旧値を保持する移行を優先する。旧列しか存在しないDBでは設計済みデフォルトを補完する。
+
 詳細なデータコピー・ロールバック手順は [SQLITE_MIGRATION_V3.md](./SQLITE_MIGRATION_V3.md) を参照する。
 
 ---
@@ -251,7 +259,7 @@ Version 2以前にランタイムDDLで作成されたテーブルにも、正�
 
 - RAG用のベクトルDBは本SQLiteとは別技術のため、ここでは設計しない。Phase 2でChroma/LanceDB/Qdrant等を選定し、SQLite側には「どの知識ベースがどのプロジェクトに紐づくか」程度の参照カラムのみ追加する想定。
 - 知識ベースはプロジェクト単位で共有し、部署・役割ごとに"同じ倉庫を違うレンズで読む"設計とする（RAG検索クエリに役割コンテキストを含める）。
-- `member_learnings` はPhase 1の4層マージで利用する学習履歴としてVersion 2マイグレーションでDDLを正式化し、Version 3で外部キーを再構築した。`ai_models` と `api_usage_logs` はPhase 2の運用メタデータであり、後者もVersion 3で外部キーを再構築した。RAG用ベクトルDBと検索・チャンク化の設計は引き続き未着手。
+- `member_learnings` はPhase 1の4層マージで利用する学習履歴としてVersion 2マイグレーションでDDLを正式化し、Version 3で外部キーを再構築した。`ai_models` と `api_usage_logs` はPhase 2の運用メタデータであり、後者もVersion 3で外部キーを再構築した。RAGのSQLiteソース・チャンク・埋め込み/検索adapter境界は別設計書で進行中だが、LanceDB永続化と会議保存hookは未完了。
 
 ---
 
@@ -262,3 +270,4 @@ Version 2以前にランタイムDDLで作成されたテーブルにも、正�
 | 2026-07-13 | Antigravity | projectsテーブルの values カラムについて、SQLiteの予約語衝突エラーを回避するため二重引用符（"values"）を使用する旨を追記。 |
 | 2026-08-09 | Codex | Version 2マイグレーションを追加し、学習履歴DDLを正式化。モデルカタログ・利用量ログをPhase 2運用メタデータとして分離。 |
 | 2026-08-11 | Codex | Version 3マイグレーションを追加。`users.summary_model` を正式化し、`member_learnings` / `api_usage_logs` の外部キーを再構築。 |
+| 2026-08-11 | Codex | Holistic reviewを反映。会議親行を先に作成するFK保存契約、ユーザー確認済み決定事項のみ学習化、議事録JSON・会議ログ永続化の未完了事項を追記。 |

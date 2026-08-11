@@ -16,6 +16,16 @@ Version 2で作成された運用テーブルは、既存DBに同名テーブル
 | `member_learnings` | `members`（CASCADE）と `meetings`（SET NULL）へのFKを保証 |
 | `api_usage_logs` | `members`（CASCADE）、`chat_sessions`/`meetings`（SET NULL）へのFKを保証 |
 
+## アプリ側の運用不変条件
+
+Version 3で `api_usage_logs.meeting_id` に `meetings(id)` の外部キーが付いたため、アプリは次の順序を守る。
+
+1. 会議開始時に `meetings` の親行を作成し、実際の `lastInsertId` を会議コンテキストへ保持する。
+2. 会議中の利用量ログは、その実IDだけを `meeting_id` に指定する。仮ID・未確定ID・`999` などのプレースホルダーは禁止する。
+3. 会議終了時は親行を `終了` に更新してから、議事録・発言・参加者・サマリー生成分の利用量ログを同じIDへ保存する。
+
+親行の作成に失敗した場合は、子テーブルへの書込みやAI発言の進行を開始せず、ユーザーへ再試行可能なエラーを表示する。この順序を回帰テストで固定する。
+
 ## データコピー手順
 
 1. 対象テーブルごとに `__v3` 一時テーブルを、確定したDDLで作成する。
@@ -47,4 +57,3 @@ SQLファイルに `BEGIN` / `COMMIT` を書かず、コピー・制約検査・
 - `PRAGMA foreign_key_list(member_learnings)` と `api_usage_logs` が設計どおりである。
 - `PRAGMA foreign_key_check` が空結果になる。
 - 孤立参照を含むfixtureでは移行が失敗し、旧テーブル・データが保持される。
-
