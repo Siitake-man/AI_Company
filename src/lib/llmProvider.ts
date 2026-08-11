@@ -8,8 +8,6 @@
  */
 
 import { getApiKey, PROVIDERS, ProviderType } from "./apiKeyStore";
-import { ChatOpenAI } from "@langchain/openai";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { BaseMessage, SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 
 /** LLM呼び出しの共通レスポンス型 */
@@ -77,12 +75,14 @@ async function callAnthropicWithFetch(
     return { content: "API応答形式エラー", promptTokens: 0, completionTokens: 0 };
 }
 
-/** LangChain.js の ChatModel インスタンスを生成（OpenAI / Gemini のみ） */
-function createChatModel(modelId: string, apiKey: string, providerType: ProviderType) {
+/** LangChain.js の ChatModel インスタンスを遅延生成（OpenAI / Gemini のみ） */
+async function createChatModel(modelId: string, apiKey: string, providerType: ProviderType) {
     if (providerType === PROVIDERS.OPENAI) {
+        const { ChatOpenAI } = await import("@langchain/openai");
         return new ChatOpenAI({ model: modelId, apiKey });
     }
     if (providerType === PROVIDERS.GEMINI) {
+        const { ChatGoogleGenerativeAI } = await import("@langchain/google-genai");
         return new ChatGoogleGenerativeAI({ model: modelId, apiKey });
     }
     throw new Error("未対応のプロバイダー");
@@ -158,7 +158,7 @@ export async function callLLMWithHistory(params: {
         }
 
         // OpenAI / Gemini は LangChain.js
-        const model = createChatModel(modelId, apiKey, providerType);
+        const model = await createChatModel(modelId, apiKey, providerType);
         const langChainMessages = toLangChainMessages(systemPrompt, messages);
         const response = await model.invoke(langChainMessages);
 
@@ -285,4 +285,4 @@ export async function callLLM(params: {
         apiKey: params.apiKey,
     });
 }
-
+

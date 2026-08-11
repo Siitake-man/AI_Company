@@ -1,6 +1,6 @@
 # DATA_SCHEMA.md
 ## AI Team Builder（AIカンパニー）データベース設計書
-Version 1.0 / SQLite（ローカルDB）
+Version 1.1 / SQLite（ローカルDB）
 
 ---
 
@@ -207,11 +207,22 @@ CREATE TABLE app_settings (
 ```
 
 > **APIキーについての注意**
-> APIキーはこのテーブルには保存しない。Tauriのsecure storage（macOS: Keychain / Windows: DPAPI / Linux: Secret Service）で別管理する。DB内にプロバイダーの接続状態すら残さない設計とし、平文流出のリスクをゼロに近づける。
+> APIキーはこのテーブルには保存しない。Tauriのsecure storage（macOS: Keychain / Windows: DPAPI / Linux: Secret Service）で別管理する。DBには認証情報や接続状態（有効性）は残さず、利用モデルのプロバイダー名・モデル名といった運用メタデータのみを保存する。
+
+### 4.2 追加運用テーブル（Version 2マイグレーション）
+
+`member_learnings` は4層マージで参照する学習機能上の基幹テーブルであり、Phase 1の機能上必要である。一方、モデルカタログと利用量計測はPhase 2の運用メタデータとして、Version 1の初期11テーブルとは分離して管理する。APIキーそのものや接続状態は保存しない。
+
+| テーブル | 役割 |
+|---|---|
+| `ai_models` | プロバイダーごとの利用可能モデル一覧 |
+| `api_usage_logs` | トークン数・推定コストの利用量記録 |
+
+`ai_models` と `api_usage_logs` はTauri SQLプラグインのVersion 2マイグレーションで作成する。`member_learnings` も同じマイグレーションでDDLを正式化するが、論理的な所属は§1.5の基幹4層構造系テーブルである。既存DBで同名テーブルがある場合は `IF NOT EXISTS` によりデータを保持するため、追加FKの適用は次回のスキーマ整合化マイグレーションで扱う。
 
 ---
 
-## 5. テーブル一覧（全11テーブル）
+## 5. Version 1 初期スキーマ一覧（全11テーブル）
 
 | # | テーブル名 | 役割 |
 |---|---|---|
@@ -229,11 +240,11 @@ CREATE TABLE app_settings (
 
 ---
 
-## 6. Phase 2への申し送り（今は着手しない）
+## 6. Phase 2への申し送り
 
 - RAG用のベクトルDBは本SQLiteとは別技術のため、ここでは設計しない。Phase 2でChroma/LanceDB/Qdrant等を選定し、SQLite側には「どの知識ベースがどのプロジェクトに紐づくか」程度の参照カラムのみ追加する想定。
 - 知識ベースはプロジェクト単位で共有し、部署・役割ごとに"同じ倉庫を違うレンズで読む"設計とする（RAG検索クエリに役割コンテキストを含める）。
-- 価値観蓄積・学習ログ（ユーザーが決断理由を聞かれて学習する機能）も未設計。マーケティング系（陳腐化しにくい）とセキュリティ系（鮮度重視）でログの持ち方を分ける方針だけメモしておく。
+- `member_learnings` はPhase 1の4層マージで利用する学習履歴としてVersion 2マイグレーションでDDLを正式化した。`ai_models` と `api_usage_logs` はPhase 2の運用メタデータである。RAG用ベクトルDBと検索・チャンク化の設計は引き続き未着手。
 
 ---
 
@@ -242,3 +253,4 @@ CREATE TABLE app_settings (
 | 日付 | 変更者 | 内容 |
 |---|---|---|
 | 2026-07-13 | Antigravity | projectsテーブルの values カラムについて、SQLiteの予約語衝突エラーを回避するため二重引用符（"values"）を使用する旨を追記。 |
+| 2026-08-09 | Codex | Version 2マイグレーションを追加し、学習履歴DDLを正式化。モデルカタログ・利用量ログをPhase 2運用メタデータとして分離。 |

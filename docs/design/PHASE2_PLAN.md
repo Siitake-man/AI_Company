@@ -13,7 +13,7 @@
 
 Phase 1 では「動作すること」を最優先に、以下のトレードオフを受け入れた：
 
-- **LLM呼び出し**: 3プロバイダー（OpenAI/Anthropic/Gemini）のAPIを素の `fetch()` で直接叩いている（`MeetingScreen.tsx` の `runNextSpeaker()` ）
+- **LLM呼び出し（Phase 2aで改善済み）**: OpenAI / Gemini は LangChain.js の ChatModel に置き換え済み。Anthropic は Tauri バンドル非互換のため `src/lib/llmProvider.ts` 内で自前 `fetch()` を維持
 - **会議オーケストレーション**: `useEffect` + `setTimeout` の自前ループ（ラウンドロビン制御）
 - **知識ベース**: 皆無。会議ログはSQLiteに蓄積するのみで、検索・参照はできない
 
@@ -25,10 +25,10 @@ Phase 2 ではこれらの「動くけど粗い」部分を、保守性・拡張
 
 ### 1.1 現状の課題
 
-| 観点 | 現状（Phase 1） | 問題点 |
+| 観点 | 現状（Phase 2b完了後） | 次の改善点 |
 |---|---|---|
-| LLM呼び出し | `fetch()` × 3プロバイダー（switch-case） | プロバイダー追加のたびにMeetingScreenの改修が必要 |
-| プロンプト構築 | 文字列連結（`+` 演算子） | テンプレートの管理不能、文脈依存のテスト不可 |
+| LLM呼び出し | Phase 2aでOpenAI/GeminiはLangChain化。Anthropicのみ自前fetch | 新規プロバイダーは `llmProvider.ts` 内へカプセル化する |
+| プロンプト構築 | Phase 2bで `PromptTemplate` へ分離済み | サマリー生成等、残るプロンプトの段階的なテンプレート化 |
 | エラーハンドリング | 各APIのエラーレスポンスを個別にパース | 共通化されていない、リトライなし |
 | トークン管理 | 自前で `prompt_tokens / completion_tokens` を集計 | LangChain側で標準提供される機能の再実装 |
 | ストリーミング | 未対応（全レスポンス待ち） | UX改善の余地大 |
@@ -44,7 +44,11 @@ Phase 2c: チェーン/ワークフローの導入
 Phase 2d: ストリーミング対応 + エージェント化
 ```
 
+**進捗:** Phase 2a 完了（2026-07-20）/ Phase 2b 完了（2026-08-11）/ Phase 2c・2d 未着手
+
 #### Phase 2a: ChatModel ラッパー（最優先）
+
+> ✅ 完了（2026-07-20）。`src/lib/llmProvider.ts` で OpenAI / Gemini を ChatModel 化済み。Anthropic のみ `@langchain/anthropic` の Tauri バンドル非互換により自前fetch。
 
 現在の `fetch()` 呼び出しを、LangChain.js の `@langchain/core` にある `ChatModel` インターフェースでラップする。
 
@@ -70,7 +74,9 @@ npm install @langchain/core @langchain/openai @langchain/anthropic @langchain/go
 
 #### Phase 2b: プロンプトテンプレート（PromptTemplate の導入）
 
-現在文字列連結で構築しているユーザープロンプト（`MeetingScreen.tsx` 157〜170行目）を `PromptTemplate` で管理する。
+> ✅ 完了（2026-08-11）。`src/lib/langchain/prompts.ts` の `speakerPromptTemplate` と `buildSpeakerPrompt()` を会議画面へ統合し、テンプレートの回帰テストを追加。
+
+会議発言用ユーザープロンプトを `PromptTemplate` で管理し、`MeetingScreen.tsx` は入力値の受け渡しのみを担う。
 
 **変更内容:**
 - `src/lib/langchain/prompts.ts` を新規作成
@@ -120,6 +126,8 @@ const speakerPrompt = PromptTemplate.fromTemplate(`
 ---
 
 ## 2. RAG（検索拡張生成）導入計画
+
+> 未着手。`src/lib/rag/types.ts` の型スタブのみ。LanceDB（`vectordb`）は未インストール。
 
 ### 2.1 現状の課題
 
@@ -234,7 +242,7 @@ flowchart TD
 | 🔴 P0 | Phase 2a: `@langchain/core` + 各プロバイダーのインストール | 15分 | ①パッケージ追加 → ②`llm.ts` 作成 → ③MeetingScreenの置き換え |
 | 🔴 P0 | `src/lib/langchain/llm.ts` 作成とMeetingScreenの置き換え | 20分 | 同上 |
 | 🟡 P1 | RAG: LanceDBの導入 + `project_knowledge` テーブル作成 | 30分 | ①LanceDBインストール → ②スキーマ定義 → ③ダミーデータ投入テスト |
-| 🟡 P1 | Phase 2b: `prompts.ts` によるテンプレート管理 | 15分 | 同上 |
+| ✅ 完了 | Phase 2b: `prompts.ts` によるテンプレート管理 | — | 2026-08-11 完了 |
 | 🟢 P2 | RAG: 議事録保存時に自動チャンク化＋ベクトル保存（自動学習パイプライン） | 30分 | ①チャンク戦略の決定 → ②`SummaryScreen` 保存フックへの追加 |
 | 🟢 P2 | RAG: role_categoryフィルターによる「違うレンズ」検索の実装 | 20分 | ①検索関数の作成 → ②`getMergedSystemPrompt` への統合 |
 | 🔵 P3 | Phase 2c: ワークフロー型会議への移行 | 60分 | ①`workflow.ts` 作成 → ②既存ループの置き換え → ③結合テスト |
@@ -248,9 +256,9 @@ flowchart TD
 
 - [x] `src/lib/langchain/` ディレクトリ作成（Julesが対応済み ✅）
 - [x] `src/lib/rag/` ディレクトリ作成（Julesが対応済み ✅）
-- [x] `docs/lib/llmProvider.ts` 作成（2026-07-20 Antigravity対応 ✅）
+- [x] `src/lib/llmProvider.ts` 作成（2026-07-20 Antigravity対応 ✅）
 - [x] `docs/design/ROADMAP.md` を PHASE2_PLAN.md に合わせて更新（2026-07-20 ✅）
-- [ ] `npm install @langchain/core @langchain/openai @langchain/anthropic @langchain/google-genai`
+- [x] `npm install @langchain/core @langchain/openai @langchain/google-genai`（2026-07-20 ✅。`@langchain/anthropic` はTauri非互換のため自前fetchで代替し未導入）
 - [ ] `npm install vectordb`（LanceDB）
 
 ---
@@ -291,3 +299,4 @@ flowchart TD
 |---|---|---|
 | 2026-07-20 | Antigravity | Phase 2 実装計画書の初版。LangChain.js導入計画とRAG技術選定を記載。 |
 | 2026-07-20 | Antigravity | v0.2: 見直し版。LangChain.js導入は Phase 2a までに留め、RAG（LanceDB）は今週着手しない方針を明確化。事前準備チェックリストを更新。 |
+| 2026-08-11 | Codex | Phase 2a・Phase 2b完了、RAG未着手の実装状況を同期。 |

@@ -1,4 +1,4 @@
-# Master_Handoff_Prompt.md
+# Master_Handoff_Prompt.md（Phase 1開始時点・アーカイブ）
 ## AIカンパニー開発 — 開発着手プロンプト
 Version 1.0
 

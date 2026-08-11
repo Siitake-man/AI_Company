@@ -5,6 +5,7 @@ import Database from "@tauri-apps/plugin-sql";
 import { getMergedSystemPrompt } from "../lib/promptMerger";
 import { calculateCost } from "../lib/utils";
 import { callLLMWithPrompt, callLLMWithFallback, resolveApiKey } from "../lib/llmProvider";
+import { buildSpeakerPrompt } from "../lib/langchain/prompts";
 
 type MeetingScreenProps = {
   dbInstance: Database | null;
@@ -146,20 +147,12 @@ export const MeetingScreen = ({
           .join("\n\n");
 
         // 4. ユーザープロンプト（コンテキスト）の構築（より深い議論の要求と、ホワイトボードタグ指示の埋め込み）
-        const userPrompt = `
-現在の会議議題: 「${meetingAgenda}」
-現在の進行モード: ${meetingMode === "exploration" ? "探索モード（自由にアイデアを出し合って広げる）" : "収束モード（ToDoや決定事項、結論の整理にフォーカスする）"}
-
-これまでの議論履歴:
-${historyText || "（議論の開始です。最初の発言をお願いします）"}
-
-【指示】
-あなたは上記の議題について話し合っています。これまでの議論の流れを踏まえ、あなたの役職・専門領域（${currentMember.role}）の立場から、プロジェクトに貢献する発言を行ってください。
-- 1回あたりの発言は簡潔に、日本語で3〜5行程度にまとめてください。
-- 「山田さんに同意します」「私もそう思います」等の無意味な挨拶や単純な同意は一切省き、前発言への具体的なリスク指摘や、自身の専門性を活かした対立軸・トレードオフの提示など、議論を深く進める中身のある発言をしてください。
-- 探索モードなら突飛なアイデアや多角的な視点を、収束モードなら論点の要約や現実的な懸念、次のステップを提案してください。
-- 発言の最後に必ず、[BOARD]現在の課題: ○○ | 考える方針: ○○[/BOARD] の形式で、議論を整理するためのメモを1行で出力してください（出力メッセージ本文には表示されません）。
-`;
+        const userPrompt = await buildSpeakerPrompt({
+          agenda: meetingAgenda,
+          mode: meetingMode === "exploration" ? "探索モード（自由にアイデアを出し合って広げる）" : "収束モード（ToDoや決定事項、結論の整理にフォーカスする）",
+          history: historyText || "（議論の開始です。最初の発言をお願いします）",
+          role: currentMember.role,
+        });
 
         // 5. APIコール（llmProviderに統一）
         const result = await callLLMWithPrompt({

@@ -42,7 +42,13 @@ pub fn run() {
             description: "create initial tables",
             sql: include_str!("../migrations/init.sql"),
             kind: MigrationKind::Up,
-        }
+        },
+        Migration {
+            version: 2,
+            description: "create Phase 2 operational tables",
+            sql: include_str!("../migrations/phase2_operational.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -63,4 +69,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

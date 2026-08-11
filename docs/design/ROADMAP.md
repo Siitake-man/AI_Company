@@ -8,7 +8,7 @@ Version 1.0 / 依存関係ベース（時間ベースではない）
 
 - 本ロードマップは**時間見積もりではなく、依存関係（前工程が終わらないと次に進めない）で構成する**。
 - 各ノードの完了自体が一つのチェックポイントであり、曜日・時間で区切らない。
-- Phase 2（RAG、LangChain.js本格導入、コアプロフィール作り込み等）はPhase1完了後に着手する。今は範囲外。
+- Phase 1 は完了済み。Phase 2 は Phase 2a（LangChain.js 導入）と Phase 2b（PromptTemplate 標準化）が完了。次の依存ノードであるRAGは未着手。
 
 ---
 
@@ -68,7 +68,7 @@ flowchart TD
 | G8 | S8 議事録・サマリー | ✅ 2026-07-16完了（新規UI実装、決定事項保存時の自動学習シミュレート機能済） |
 | H | Markdownエクスポート | ✅ 2026-07-16完了（tauri-plugin-fs / dialogを利用して実装済） |
 | I | Phase 1完了・社内発表 | ✅ 2026-07-16完了（S1〜S8のUIリデザイン、一連の流れの結合テスト完了） |
-| J | Phase 2検討開始 | Phase 1の実体験を踏まえ、RAG・LangChain.js等の詳細設計に着手する（本ロードマップの範囲外） |
+| J | Phase 2検討開始 | ✅ 2026-07-20完了（PHASE2_PLAN.md作成、Phase 2a着手） |
 
 ---
 
@@ -94,13 +94,14 @@ flowchart TD
 | 2026-07-16 | Jules | S1〜S8の全画面UIを「かわいい手帳風」にリデザイン。S8（議事録・サマリー）画面を新規作成し、Markdownエクスポート機能を実装。会議モードのAPIキーガード強化。Phase 1完了。 |
 | 2026-07-18 | Antigravity | 設定画面(S9)の2ペイン化およびタブ統合。Tauri v2の厳格なパーミッション（dialog/fs）不足によるAPIキーテスト・サマリー保存機能の不具合を解消。グローバルSKILL（コンテキスト自動生成）を作成。 |
 | 2026-07-20 | Antigravity | Phase 2 設計書（PHASE2_PLAN.md）作成。LLM呼び出しを `src/lib/llmProvider.ts` に共通化。古いJules引き継ぎファイルをarchive化。 |
+| 2026-08-11 | Codex | Phase 2a・Phase 2b（PromptTemplate）完了、RAG未着手の実装状況を同期。 |
 
 
 ## Phase 2（来月以降・優先順位順）
 
-1. **LangChain.js 導入（Phase 2a）**: `@langchain/core` + 各プロバイダーのChatModelラッパー。`MeetingScreen.tsx` の生fetch()を置き換える
-2. **RAG + LanceDB 導入**: プロジェクト単位の知識ベース（「同じ倉庫、違うレンズ」方式）。`member_learnings` のベクトル検索化
-3. **PromptTemplate 標準化**: `MeetingScreen.tsx` のユーザープロンプト構築ロジックをテンプレートファイルに分離
+1. **LangChain.js 導入（Phase 2a）: 完了**。`@langchain/core` + `@langchain/openai` + `@langchain/google-genai` を導入し、`src/lib/llmProvider.ts` に統一。OpenAI / Gemini は ChatModel で呼び出し、Anthropic は Tauri バンドル非互換のため自前fetchを維持
+2. **PromptTemplate 標準化（Phase 2b）: 完了**。`src/lib/langchain/prompts.ts` のテンプレートを `MeetingScreen.tsx` の会議発言生成へ統合し、回帰テストを追加
+3. **RAG + LanceDB 導入: 未着手**。`src/lib/rag/types.ts` の型スタブのみ。`vectordb`（LanceDB）は未インストール
 4. **会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録
 5. **検索→コンテキスト注入の統合**: 4層マージの第2層（プロジェクト価値観）の後にRAG結果を動的に注入
 6. **コアプロフィールの本格作り込み**: 他AIからの情報抽出プロンプト付きUI
