@@ -129,7 +129,7 @@ const speakerPrompt = PromptTemplate.fromTemplate(`
 
 ## 2. RAG（検索拡張生成）導入計画
 
-> RAG本体は未着手だが、2026-08-11に基盤の最小実装を開始した。`src/lib/rag/types.ts` の契約型と `chunker.ts` の決定的チャンク分割を追加済み。LanceDB（`vectordb`）と埋め込みプロバイダーは未導入。
+> RAG本体は段階導入中。2026-08-11にSQLiteソースadapter、決定的チャンク分割、OpenAI Embeddings adapter、プロジェクト単位のベクトル検索契約（インメモリ実装付き）を追加済み。LanceDB（`vectordb`）の永続adapterと会議保存hookは未導入。
 
 ### 2.1 現状の課題
 
@@ -246,8 +246,9 @@ flowchart TD
 | 🟡 P1 | RAG: LanceDBの導入 + `project_knowledge` テーブル作成 | 30分 | ①LanceDBインストール → ②スキーマ定義 → ③ダミーデータ投入テスト |
 | ✅ 完了 | Phase 2b: `prompts.ts` によるテンプレート管理 | — | 2026-08-11 完了 |
 | ✅ 完了 | SQLite Version 3整合化マイグレーション | — | 2026-08-11完了。`summary_model`正式化、運用テーブルのFK再構築、ロールバックfixture検証 |
-| ✅ 基盤完了 | RAG基盤：SQLiteソースadapterと決定的チャンク分割 | — | `KnowledgeSource` → `KnowledgeDocument[]` の変換、ロール分類、回帰テスト（2026-08-11） |
-| 🟢 P2 | RAG: 議事録保存時に自動チャンク化＋ベクトル保存（自動学習パイプライン） | 30分 | ①チャンク戦略の決定 → ②`SummaryScreen` 保存フックへの追加 |
+| ✅ 基盤完了 | RAG基盤：SQLiteソースadapter・決定的チャンク・埋め込み/検索契約 | — | `KnowledgeSource` → `KnowledgeDocument[]`、OpenAI Embeddings adapter、プロジェクトfilter付き検索、回帰テスト（2026-08-11） |
+| 🟡 P1 | RAG: LanceDB adapterの導入 | 30分 | ①依存関係と永続スキーマ → ②`KnowledgeVectorStore` 実装 → ③再起動後の読み出しテスト |
+| 🟢 P2 | RAG: 議事録保存時に自動チャンク化＋ベクトル保存（自動学習パイプライン） | 30分 | ①`SummaryScreen` 保存フック → ②埋め込み → ③LanceDB登録 |
 | 🟢 P2 | RAG: role_categoryフィルターによる「違うレンズ」検索の実装 | 20分 | ①検索関数の作成 → ②`getMergedSystemPrompt` への統合 |
 | 🔵 P3 | Phase 2c: ワークフロー型会議への移行 | 60分 | ①`workflow.ts` 作成 → ②既存ループの置き換え → ③結合テスト |
 | 🔵 P3 | コアプロフィールの本格作り込み（他AIからの情報抽出UI） | 30分 | ①UIコンポーネント設計 → ②プロンプトテンプレート作成 |
@@ -304,3 +305,4 @@ flowchart TD
 | 2026-07-20 | Antigravity | Phase 2 実装計画書の初版。LangChain.js導入計画とRAG技術選定を記載。 |
 | 2026-07-20 | Antigravity | v0.2: 見直し版。LangChain.js導入は Phase 2a までに留め、RAG（LanceDB）は今週着手しない方針を明確化。事前準備チェックリストを更新。 |
 | 2026-08-11 | Codex | Phase 2a・Phase 2b完了、RAG未着手の実装状況を同期。 |
+| 2026-08-11 | Codex | RAGの埋め込みプロバイダー契約・OpenAI adapter・プロジェクト単位のベクトル検索契約（インメモリ実装付き）を追加。 |
