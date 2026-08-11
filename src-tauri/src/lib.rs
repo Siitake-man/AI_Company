@@ -49,6 +49,12 @@ pub fn run() {
             sql: include_str!("../migrations/phase2_operational.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "normalize schema integrity and summary model",
+            sql: include_str!("../migrations/schema_v3_integrity.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

@@ -8,7 +8,7 @@ Version 1.0 / 依存関係ベース（時間ベースではない）
 
 - 本ロードマップは**時間見積もりではなく、依存関係（前工程が終わらないと次に進めない）で構成する**。
 - 各ノードの完了自体が一つのチェックポイントであり、曜日・時間で区切らない。
-- Phase 1 は完了済み。Phase 2 は Phase 2a（LangChain.js 導入）と Phase 2b（PromptTemplate 標準化）が完了。次の依存ノードであるRAGは未着手。
+- Phase 1 は完了済み。Phase 2 は Phase 2a（LangChain.js 導入）・Phase 2b（PromptTemplate 標準化）・SQLite Version 3整合化が完了。次の依存ノードであるRAGは未着手。
 
 ---
 
@@ -95,17 +95,19 @@ flowchart TD
 | 2026-07-18 | Antigravity | 設定画面(S9)の2ペイン化およびタブ統合。Tauri v2の厳格なパーミッション（dialog/fs）不足によるAPIキーテスト・サマリー保存機能の不具合を解消。グローバルSKILL（コンテキスト自動生成）を作成。 |
 | 2026-07-20 | Antigravity | Phase 2 設計書（PHASE2_PLAN.md）作成。LLM呼び出しを `src/lib/llmProvider.ts` に共通化。古いJules引き継ぎファイルをarchive化。 |
 | 2026-08-11 | Codex | Phase 2a・Phase 2b（PromptTemplate）完了、RAG未着手の実装状況を同期。 |
+| 2026-08-11 | Codex | SQLite Version 3整合化マイグレーションを実装。起動時DDLを削除し、データコピー・ロールバックfixtureで検証。 |
 
 
 ## Phase 2（来月以降・優先順位順）
 
 1. **LangChain.js 導入（Phase 2a）: 完了**。`@langchain/core` + `@langchain/openai` + `@langchain/google-genai` を導入し、`src/lib/llmProvider.ts` に統一。OpenAI / Gemini は ChatModel で呼び出し、Anthropic は Tauri バンドル非互換のため自前fetchを維持
 2. **PromptTemplate 標準化（Phase 2b）: 完了**。`src/lib/langchain/prompts.ts` のテンプレートを `MeetingScreen.tsx` の会議発言生成へ統合し、回帰テストを追加
-3. **RAG + LanceDB 導入: 未着手**。`src/lib/rag/types.ts` の型スタブのみ。`vectordb`（LanceDB）は未インストール
-4. **会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録
-5. **検索→コンテキスト注入の統合**: 4層マージの第2層（プロジェクト価値観）の後にRAG結果を動的に注入
-6. **コアプロフィールの本格作り込み**: 他AIからの情報抽出プロンプト付きUI
-7. **ワークフロー型会議（Phase 2c）**: `RunnableSequence` による発言生成チェーン
-8. **以降**: 会議モードの途中切り替え / 非同期会議 / ローカルLLM / MCPサーバー化
+3. **SQLite Version 3整合化: 完了（2026-08-11）**。`users.summary_model` をマイグレーションへ移し、`member_learnings` / `api_usage_logs` をデータコピー方式で再構築して外部キーを保証
+4. **RAG + LanceDB 導入: 未着手**。`src/lib/rag/types.ts` の型スタブのみ。`vectordb`（LanceDB）は未インストール
+5. **会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録
+6. **検索→コンテキスト注入の統合**: 4層マージの第2層（プロジェクト価値観）の後にRAG結果を動的に注入
+7. **コアプロフィールの本格作り込み**: 他AIからの情報抽出プロンプト付きUI
+8. **ワークフロー型会議（Phase 2c）**: `RunnableSequence` による発言生成チェーン
+9. **以降**: 会議モードの途中切り替え / 非同期会議 / ローカルLLM / MCPサーバー化
 
 詳細は `docs/design/PHASE2_PLAN.md` を参照。

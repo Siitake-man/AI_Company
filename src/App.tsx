@@ -415,13 +415,6 @@ function App() {
           );
         }
 
-        // summary_model カラムを users テーブルに追加 (もし無ければ)
-        try {
-          await db.execute("ALTER TABLE users ADD COLUMN summary_model TEXT DEFAULT 'gemini-2.5-flash'");
-        } catch (e) {
-          // すでにカラムがあればエラーになるので無視
-        }
-
         // 1.5. ユーザーコアプロフィールの読み込み
         const userResult = await db.select<{ core_profile: string, summary_model: string }[]>(
           "SELECT core_profile, summary_model FROM users WHERE id = 1"

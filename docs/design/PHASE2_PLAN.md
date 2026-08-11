@@ -46,6 +46,8 @@ Phase 2d: ストリーミング対応 + エージェント化
 
 **進捗:** Phase 2a 完了（2026-07-20）/ Phase 2b 完了（2026-08-11）/ Phase 2c・2d 未着手
 
+SQLite Version 3の整合化マイグレーションは完了（2026-08-11）。`users.summary_model` を正式DDLへ移し、既存の `member_learnings` / `api_usage_logs` をデータコピー方式で再構築して外部キーを保証した。詳細は [SQLITE_MIGRATION_V3.md](./SQLITE_MIGRATION_V3.md) を参照。
+
 #### Phase 2a: ChatModel ラッパー（最優先）
 
 > ✅ 完了（2026-07-20）。`src/lib/llmProvider.ts` で OpenAI / Gemini を ChatModel 化済み。Anthropic のみ `@langchain/anthropic` の Tauri バンドル非互換により自前fetch。
@@ -243,6 +245,7 @@ flowchart TD
 | 🔴 P0 | `src/lib/langchain/llm.ts` 作成とMeetingScreenの置き換え | 20分 | 同上 |
 | 🟡 P1 | RAG: LanceDBの導入 + `project_knowledge` テーブル作成 | 30分 | ①LanceDBインストール → ②スキーマ定義 → ③ダミーデータ投入テスト |
 | ✅ 完了 | Phase 2b: `prompts.ts` によるテンプレート管理 | — | 2026-08-11 完了 |
+| ✅ 完了 | SQLite Version 3整合化マイグレーション | — | 2026-08-11完了。`summary_model`正式化、運用テーブルのFK再構築、ロールバックfixture検証 |
 | 🟢 P2 | RAG: 議事録保存時に自動チャンク化＋ベクトル保存（自動学習パイプライン） | 30分 | ①チャンク戦略の決定 → ②`SummaryScreen` 保存フックへの追加 |
 | 🟢 P2 | RAG: role_categoryフィルターによる「違うレンズ」検索の実装 | 20分 | ①検索関数の作成 → ②`getMergedSystemPrompt` への統合 |
 | 🔵 P3 | Phase 2c: ワークフロー型会議への移行 | 60分 | ①`workflow.ts` 作成 → ②既存ループの置き換え → ③結合テスト |

@@ -1,6 +1,6 @@
 # DATA_SCHEMA.md
 ## AI Team Builder（AIカンパニー）データベース設計書
-Version 1.1 / SQLite（ローカルDB）
+Version 3.0 / SQLite（ローカルDB）
 
 ---
 
@@ -22,6 +22,7 @@ Version 1.1 / SQLite（ローカルDB）
 CREATE TABLE users (
     id INTEGER PRIMARY KEY,
     core_profile TEXT,           -- 「AI社員が知っておくべきこと」自由記述
+    summary_model TEXT NOT NULL DEFAULT 'gemini-2.5-flash', -- S8サマリー生成モデル
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -220,6 +221,12 @@ CREATE TABLE app_settings (
 
 `ai_models` と `api_usage_logs` はTauri SQLプラグインのVersion 2マイグレーションで作成する。`member_learnings` も同じマイグレーションでDDLを正式化するが、論理的な所属は§1.5の基幹4層構造系テーブルである。既存DBで同名テーブルがある場合は `IF NOT EXISTS` によりデータを保持するため、追加FKの適用は次回のスキーマ整合化マイグレーションで扱う。
 
+### 4.3 Version 3 スキーマ整合化マイグレーション
+
+Version 2以前にランタイムDDLで作成されたテーブルにも、正式な外部キー制約を適用する。SQLiteでは既存テーブルのFK句をALTERできないため、`__v3`一時テーブルへ主キーを含む全データをコピーし、旧テーブルをリネームする方式を採用する。`users.summary_model` もこのマイグレーションで正式化し、アプリ起動時の `ALTER TABLE` は行わない。
+
+詳細なデータコピー・ロールバック手順は [SQLITE_MIGRATION_V3.md](./SQLITE_MIGRATION_V3.md) を参照する。
+
 ---
 
 ## 5. Version 1 初期スキーマ一覧（全11テーブル）
@@ -244,7 +251,7 @@ CREATE TABLE app_settings (
 
 - RAG用のベクトルDBは本SQLiteとは別技術のため、ここでは設計しない。Phase 2でChroma/LanceDB/Qdrant等を選定し、SQLite側には「どの知識ベースがどのプロジェクトに紐づくか」程度の参照カラムのみ追加する想定。
 - 知識ベースはプロジェクト単位で共有し、部署・役割ごとに"同じ倉庫を違うレンズで読む"設計とする（RAG検索クエリに役割コンテキストを含める）。
-- `member_learnings` はPhase 1の4層マージで利用する学習履歴としてVersion 2マイグレーションでDDLを正式化した。`ai_models` と `api_usage_logs` はPhase 2の運用メタデータである。RAG用ベクトルDBと検索・チャンク化の設計は引き続き未着手。
+- `member_learnings` はPhase 1の4層マージで利用する学習履歴としてVersion 2マイグレーションでDDLを正式化し、Version 3で外部キーを再構築した。`ai_models` と `api_usage_logs` はPhase 2の運用メタデータであり、後者もVersion 3で外部キーを再構築した。RAG用ベクトルDBと検索・チャンク化の設計は引き続き未着手。
 
 ---
 
@@ -254,3 +261,4 @@ CREATE TABLE app_settings (
 |---|---|---|
 | 2026-07-13 | Antigravity | projectsテーブルの values カラムについて、SQLiteの予約語衝突エラーを回避するため二重引用符（"values"）を使用する旨を追記。 |
 | 2026-08-09 | Codex | Version 2マイグレーションを追加し、学習履歴DDLを正式化。モデルカタログ・利用量ログをPhase 2運用メタデータとして分離。 |
+| 2026-08-11 | Codex | Version 3マイグレーションを追加。`users.summary_model` を正式化し、`member_learnings` / `api_usage_logs` の外部キーを再構築。 |
