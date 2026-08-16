@@ -47,7 +47,7 @@ export const MeetingModeModal = ({
             onChange={(e) => setAgenda(e.target.value)}
             rows={3}
             placeholder="会議で話し合う具体的な議題を入力してください..."
-            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] text-xs focus:outline-none focus:border-[var(--color-accent)] resize-none font-sans leading-relaxed"
+            className="w-full p-2.5 border-2 border-[var(--color-border-inner)] rounded-lg bg-[var(--color-bg)] text-[var(--color-text)] text-xs focus:outline-none focus:border-[var(--color-accent)] resize-none leading-relaxed"
           />
         </div>
 

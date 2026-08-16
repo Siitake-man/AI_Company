@@ -21,6 +21,8 @@ import { SettingsScreen } from "./components/SettingsScreen";
 import { ApiKeySetupScreen } from "./components/ApiKeySetupScreen";
 import { SummaryScreen } from "./components/SummaryScreen";
 import { ApiKeyStatusBadge } from "./components/ApiKeyStatusBadge";
+import { MeetingReviewDraft } from "./lib/meetingSummary";
+import { MeetingMessageDraft } from "./lib/meetingPersistence";
 
 
 
@@ -47,6 +49,9 @@ function App() {
   const [chatMessages, setChatMessages] = useState<{id: number, role: "user" | "assistant", content: string, created_at: string}[]>([]);
   // S8: 会議サマリー画面用の状態
   const [meetingSummaryText, setMeetingSummaryText] = useState<string>("");
+  const [meetingDraft, setMeetingDraft] = useState<MeetingReviewDraft | null>(null);
+  const [meetingParticipantMemberIds, setMeetingParticipantMemberIds] = useState<number[]>([]);
+  const [meetingMessages, setMeetingMessages] = useState<MeetingMessageDraft[]>([]);
   // S8: 会議で発生したコスト・トークンの状態
   const [meetingCostStats, setMeetingCostStats] = useState<{
     promptTokens: number;
@@ -100,12 +105,12 @@ function App() {
   // 役割に応じた背景色を取得（DESIGN_SYSTEM §2.3）
   const getRoleColor = (roleStr: string, deptName: string) => {
     const text = (roleStr + deptName).toLowerCase();
-    if (text.includes("戦略") || text.includes("経営") || text.includes("pm")) return "#FAD8C3";
-    if (text.includes("ui") || text.includes("ux") || text.includes("デザイン")) return "#D5E8D4";
-    if (text.includes("エンジニア") || text.includes("技術")) return "#E1D5E7";
-    if (text.includes("インフラ") || text.includes("セキュリティ")) return "#D4E8D4";
-    if (text.includes("法務") || text.includes("コンプライアンス")) return "#E8E8E4";
-    if (text.includes("思考スタイル") || text.includes("ドリーマー") || text.includes("代弁者")) return "#FEF3C7";
+    if (text.includes("戦略") || text.includes("経営") || text.includes("pm")) return "var(--role-strategy)";
+    if (text.includes("ui") || text.includes("ux") || text.includes("デザイン")) return "var(--role-design)";
+    if (text.includes("エンジニア") || text.includes("技術")) return "var(--role-engineering)";
+    if (text.includes("インフラ") || text.includes("セキュリティ")) return "var(--role-infrastructure)";
+    if (text.includes("法務") || text.includes("コンプライアンス")) return "var(--role-legal)";
+    if (text.includes("思考スタイル") || text.includes("ドリーマー") || text.includes("代弁者")) return "var(--role-thinking)";
     return "var(--color-panel)";
   };
 
@@ -695,16 +700,16 @@ function App() {
 
   if (loading) {
     return (
-      <div className="p-8 bg-[var(--color-bg)] min-h-screen flex items-center justify-center text-[var(--color-text)]">
-        <p className="text-xl font-bold animate-pulse">システム起動中（ローカルDB＆金庫の接続中）...</p>
+      <div className="app-loading p-8 bg-[var(--color-bg)] min-h-screen flex items-center justify-center text-[var(--color-text)]">
+        <p className="text-xl font-bold motion-pulse" role="status">システム起動中（ローカルDB＆金庫の接続中）...</p>
       </div>
     );
   }
 
   return (
-    <main className="bg-[var(--color-bg)] overflow-hidden text-[var(--color-text)] flex flex-col p-8 gap-6" style={{ height: '100vh', border: "6px solid var(--color-border-outer)", borderRadius: "8px", boxShadow: "inset 0 0 20px rgba(139,90,43,0.2)", boxSizing: 'border-box' }}>
+    <main className="app-shell bg-[var(--color-bg)] overflow-hidden text-[var(--color-text)] flex flex-col p-8 gap-6" style={{ height: '100vh', border: "6px solid var(--color-border-outer)", borderRadius: "8px", boxShadow: "inset 0 0 20px var(--color-shadow-soft)", boxSizing: 'border-box' }}>
       {/* 共通ヘッダー */}
-      <div className="border-b-[4px] border-[var(--color-border-outer)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm shrink-0">
+      <div className="app-header border-b-[4px] border-[var(--color-border-outer)] pb-4 flex justify-between items-center bg-[var(--color-panel)] p-4 rounded-lg shadow-sm shrink-0">
         <div
           onClick={() => setCurrentScreen("home")}
           className="cursor-pointer hover:opacity-80 transition-opacity"
@@ -720,7 +725,7 @@ function App() {
           {currentScreen !== "home" && (
             <button
               onClick={() => setCurrentScreen("home")}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold border bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50 btn-secondary"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border bg-[var(--color-surface)] text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-[var(--color-panel)] btn-secondary"
             >
               🏠 ホーム
             </button>
@@ -737,8 +742,8 @@ function App() {
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
               currentScreen === "promptTest"
-                ? "bg-[var(--color-accent)] text-white border-[var(--color-accent-shadow)]"
-                : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
+                ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)] border-[var(--color-accent-shadow)]"
+                : "bg-[var(--color-surface)] text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-[var(--color-panel)]"
             }`}
             disabled={!Object.values(apiKeysStatus).some((v) => v)}
           >
@@ -748,7 +753,7 @@ function App() {
       </div>
 
       {initError && (
-        <div className="bg-red-50 border-2 border-red-300 text-red-900 px-4 py-3 rounded-lg flex flex-col gap-1 shadow-sm">
+        <div className="bg-[var(--color-surface-danger)] border-2 border-[var(--color-danger-border)] text-[var(--color-text-on-danger)] px-4 py-3 rounded-lg flex flex-col gap-1 shadow-sm" role="alert">
           <p className="font-bold text-sm">⚠️ 起動時初期化エラー</p>
           <p className="text-xs font-mono">{initError}</p>
         </div>
@@ -775,6 +780,9 @@ function App() {
           }}
           onViewPastSummary={(summaryText: string, agenda: string, mode: any) => {
             setMeetingSummaryText(summaryText);
+            setMeetingDraft(null);
+            setMeetingParticipantMemberIds([]);
+            setMeetingMessages([]);
             setMeetingCostStats(undefined as any); // 過去ログ表示時はコスト統計をリセット
             setMeetingAgenda(agenda);
             setSelectedMeetingMode(mode);
@@ -841,8 +849,11 @@ function App() {
           getAvatarPath={getAvatarPath}
           getEmojiForRole={getEmojiForRole}
           getRoleColor={getRoleColor}
-          onSummaryGenerated={(text: string, promptTokens: number, completionTokens: number, totalCost: number) => {
-            setMeetingSummaryText(text);
+          onSummaryGenerated={(draft: MeetingReviewDraft, promptTokens: number, completionTokens: number, totalCost: number, participantMemberIds: number[], messages: MeetingMessageDraft[]) => {
+            setMeetingDraft(draft);
+            setMeetingSummaryText("");
+            setMeetingParticipantMemberIds(participantMemberIds);
+            setMeetingMessages(messages);
             setMeetingCostStats({ promptTokens, completionTokens, totalCost });
             setCurrentScreen("summary");
           }}
@@ -853,6 +864,10 @@ function App() {
       {/* S8: 議事録サマリー画面 */}
       {currentScreen === "summary" && (
         <SummaryScreen
+          dbInstance={dbInstance}
+          draft={meetingDraft}
+          participantMemberIds={meetingParticipantMemberIds}
+          messages={meetingMessages}
           summaryText={meetingSummaryText}
           meetingAgenda={meetingAgenda}
           meetingMode={selectedMeetingMode}
@@ -966,6 +981,10 @@ function App() {
         onClose={() => setIsMeetingModeModalOpen(false)}
         onConfirm={(mode, agenda) => {
           setIsMeetingModeModalOpen(false);
+          setMeetingDraft(null);
+          setMeetingSummaryText("");
+          setMeetingParticipantMemberIds([]);
+          setMeetingMessages([]);
           setSelectedMeetingMode(mode);
           setMeetingAgenda(agenda);
           setCurrentScreen("meeting");

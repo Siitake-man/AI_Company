@@ -119,8 +119,8 @@ export const HomeScreen = React.memo(({
       
       {/* 1. 左サイドバー (モック木目調デザイン) */}
       <div className="w-64 shrink-0 sidebar-wood rounded-xl flex flex-col p-4 gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
-        <div className="panel-paper p-3 text-center mb-1 shrink-0 bg-[#F5E6C8]">
-          <h2 className="font-title text-xl font-bold text-[#3d2b1f] tracking-wide flex items-center justify-center gap-1">
+        <div className="panel-paper p-3 text-center mb-1 shrink-0 bg-[var(--color-panel)]">
+          <h2 className="font-title text-xl font-bold text-[var(--color-text)] tracking-wide flex items-center justify-center gap-1">
             <span>🍃</span> Projects <span>🍃</span>
           </h2>
         </div>
@@ -131,7 +131,7 @@ export const HomeScreen = React.memo(({
             <div
               key={proj.id}
               onClick={() => setSelectedProjectId(proj.id)}
-              className={selectedProjectId === proj.id ? "bg-[#8B5A2B] text-white font-bold py-3 px-4 rounded-xl border-2 border-[#2e1500] flex items-center gap-3 transition-all" : "bg-white/50 text-[#3E2723] font-medium py-3 px-4 rounded-xl border-2 border-[#c8a96e] hover:bg-white transition-all flex items-center gap-3"}
+              className={selectedProjectId === proj.id ? "bg-[var(--color-border-outer)] text-[var(--color-surface)] font-bold py-3 px-4 rounded-xl border-2 border-[var(--color-text)] flex items-center gap-3 transition-all" : "bg-[var(--color-surface)]/50 text-[var(--color-text)] font-medium py-3 px-4 rounded-xl border-2 border-[var(--color-border-inner)] hover:bg-[var(--color-surface)] transition-all flex items-center gap-3"}
             >
               <div className="flex items-center gap-2">
                 <span className="text-lg">🌱</span>
@@ -271,11 +271,11 @@ export const HomeScreen = React.memo(({
                     // 役割カテゴリごとの太字カラー（モック準拠）
                     let roleTextColor = "text-[var(--color-text)]";
                     if (member.dept_name === "戦略" || member.dept_name === "経営" || member.dept_name === "PM") {
-                      roleTextColor = "text-[#c2410c]"; // PM系: オレンジ
+                      roleTextColor = "text-[var(--color-warning)]"; // PM系: オレンジ
                     } else if (member.dept_name === "UI/UX" || member.dept_name === "デザイン") {
-                      roleTextColor = "text-[#15803d]"; // デザイン系: グリーン
+                      roleTextColor = "text-[var(--color-success)]"; // デザイン系: グリーン
                     } else {
-                      roleTextColor = "text-[#6d28d9]"; // 技術・エンジニア系: ラベンダー
+                      roleTextColor = "text-[var(--color-text-sub)]"; // 技術・エンジニア系: ラベンダー
                     }
 
                     return (

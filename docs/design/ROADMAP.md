@@ -72,7 +72,7 @@ flowchart TD
 | E6 | S6 1on1チャット | ✅ 2026-07-16完了（Jules導入のセッション化に伴うDBマイグレーション漏れ修正と開通確認完了） |
 | F7A | 会議モード選択 | ✅ 2026-07-16完了（HomeScreenからの起動、探索/収束選択とMeetingScreenへの遷移確認済） |
 | F7 | S7 会議モード | ⚠️ ラウンドロビン発言・一時停止・APIキーガードは実装済み。割り込み状態機械、10秒強調、連鎖上限3の永続化は未完了 |
-| G8 | S8 議事録・サマリー | ⚠️ サマリー生成・エクスポートは実装済み。構造化JSON、会議ログ/参加者保存、ユーザー確定決定事項の学習経路は未完了 |
+| G8 | S8 議事録・サマリー | ✅ 2026-08-16完了（構造化JSON契約、実会議IDのログ/参加者保存、ユーザー確定決定事項の学習経路、単一トランザクションのrollbackを実装。Tauri実機E2Eは残件） |
 | H | Markdownエクスポート | ✅ 2026-07-16完了（tauri-plugin-fs / dialogを利用して実装済） |
 | I | Phase 1完了・社内発表 | ⚠️ 機能実装済み。ただしholistic reviewでP0/P1の品質・仕様差分を検出。是正完了後に正式完了とする |
 | J | Phase 2検討開始 | ✅ 2026-07-20完了（PHASE2_PLAN.md作成、Phase 2a着手） |
@@ -106,21 +106,27 @@ flowchart TD
 | 2026-08-11 | Codex | RAGの埋め込みプロバイダー契約・OpenAI adapter・プロジェクト単位のベクトル検索契約（インメモリ実装付き）を追加。 |
 | 2026-08-11 | Codex | Holistic reviewを反映。会議ID/FK不整合をP0として修正し、S7割り込み、会議ログ永続化、ユーザー確認付き学習、CSP/権限、LLMエラー処理、UI SSoT逸脱を是正タスクへ登録。 |
 | 2026-08-11 | Codex | セッション終了時点の引き継ぎを確定。P0修正・設計同期・検証成功を記録し、次回はS8確定事項入力/会議ログ永続化から再開する。 |
+| 2026-08-16 | Codex | 会議終了時のparticipants/messages/structured summary/confirmed decisionsを単一トランザクションで保存し、失敗時rollback・二重保存防止・実会議ID・UI/DBモード正規化を確認。LLMの構造化JSONからdecisionsを分離し、UIはAI提言とユーザー決定事項を分離した。 |
+| 2026-08-16 | Codex | DESIGN_SYSTEM準拠のCSS変数、800×600折りたたみ/1100px以上3ペイン、focus/status/reduced-motion、ローカルnoise SVGを同期。Tauri実機GUIでのDB保存前後E2Eは未実施。 |
 
 
 ## Phase 2（来月以降・優先順位順）
 
 1. **品質是正 P0: 会議ID/FK経路**: ✅ 2026-08-11完了。会議開始時に親行を作成し、実ID確定後に発言を開始する。DB実機回帰テストは追加タスク
-2. **品質是正 P1: 会議ログ・S7・S8学習・構造化議事録**: 未着手。詳細は `REVIEW_ACTION_REGISTER_20260811.md`
-3. **品質是正 P1: CSP/Capabilities・LLMエラー構造化・UI SSoT**: 未着手。セキュリティ境界を先に確定する
+2. **品質是正 P1: 会議ログ・S7・S8学習・構造化議事録**: S8構造化JSON、会議ログ/参加者永続化、ユーザー確認済み学習は ✅ 2026-08-16。S7割り込み状態機械は未着手。詳細は `REVIEW_ACTION_REGISTER_20260811.md`
+3. **品質是正 P1: CSP/Capabilities・LLMエラー構造化・UI SSoT**: UI SSoTは ✅ 2026-08-16。CSP/Capabilities・LLMエラー構造化は未着手。セキュリティ境界を先に確定する
 4. **LangChain.js 導入（Phase 2a）: 完了**。`@langchain/core` + `@langchain/openai` + `@langchain/google-genai` を導入し、`src/lib/llmProvider.ts` に統一。Anthropicは自前fetchを維持
 5. **PromptTemplate 標準化（Phase 2b）: 完了**。`src/lib/langchain/prompts.ts` のテンプレートを会議発言生成へ統合し、回帰テストを追加
 6. **SQLite Version 3整合化: 完了（2026-08-11）**。`users.summary_model` をマイグレーションへ移し、運用テーブルを再構築して外部キーを保証
 7. **RAG基盤（SQLiteソースadapter・チャンク・埋め込み/検索adapter契約）: 完了（2026-08-11）**。LanceDBは未導入
-8. **LanceDB adapter + 会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録
+8. **LanceDB adapter + 会議保存時 自動チャンク化パイプライン**: 議事録保存 → チャンク分割 → 埋め込み → LanceDB登録。S8契約の次段階として未着手
 9. **検索→コンテキスト注入の統合**: 4層マージの第2層（プロジェクト価値観）の後にRAG結果を動的に注入
 10. **コアプロフィールの本格作り込み**: 他AIからの情報抽出プロンプト付きUI
 11. **ワークフロー型会議（Phase 2c）**: `RunnableSequence` による発言生成チェーン
 12. **以降**: 会議モードの途中切り替え / 非同期会議 / ローカルLLM / MCPサーバー化
 
 詳細は `docs/design/PHASE2_PLAN.md` を参照。
+
+## 次のDAG
+
+品質是正の次の依存順は、**S7割り込み状態機械 → CSP/Capabilities → 構造化LLMエラー境界 → LanceDB** とする。

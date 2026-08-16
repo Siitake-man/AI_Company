@@ -6,7 +6,22 @@ import { getMergedSystemPrompt } from "../lib/promptMerger";
 import { calculateCost } from "../lib/utils";
 import { callLLMWithPrompt, callLLMWithFallback, resolveApiKey } from "../lib/llmProvider";
 import { buildSpeakerPrompt } from "../lib/langchain/prompts";
-import { closeMeeting, createMeeting, insertMeetingUsageLog } from "../lib/meetingPersistence";
+import { closeMeeting, createMeeting, insertMeetingUsageLog, MeetingMessageDraft } from "../lib/meetingPersistence";
+import { MeetingReviewDraft, parseStructuredMeetingSummary, StructuredMeetingSummary } from "../lib/meetingSummary";
+
+type MeetingLog = {
+  id: number;
+  sender: string;
+  role: string;
+  avatar: string;
+  content: string;
+  memberId: number | null;
+  roundNumber: number | null;
+  messageType: string;
+  interruptChainCount: number;
+  createdAt: string;
+  time: string;
+};
 
 type MeetingScreenProps = {
   dbInstance: Database | null;
@@ -19,7 +34,7 @@ type MeetingScreenProps = {
   getAvatarPath: (id: string) => string;
   getEmojiForRole: (dept: string, role: string) => string;
   getRoleColor: (role: string, dept: string) => string;
-  onSummaryGenerated: (summaryText: string, promptTokens: number, completionTokens: number, totalCost: number) => void;
+  onSummaryGenerated: (draft: MeetingReviewDraft, promptTokens: number, completionTokens: number, totalCost: number, participantMemberIds: number[], messages: MeetingMessageDraft[]) => void;
   summaryModel: string;
 };
 
@@ -44,7 +59,7 @@ export const MeetingScreen = ({
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeMemberIdx, setActiveMemberIdx] = useState<number>(0);
-  const [meetingLogs, setMeetingLogs] = useState<{ id: number; sender: string; role: string; avatar: string; content: string; time: string }[]>([]);
+  const [meetingLogs, setMeetingLogs] = useState<MeetingLog[]>([]);
   const [isSummarizing, setIsSummarizing] = useState<boolean>(false);
 
   // 会議中の累積トークン・コスト・ターン数およびホワイトボード状態
@@ -65,6 +80,7 @@ export const MeetingScreen = ({
 
   // 初期メッセージのセットアップ
   useEffect(() => {
+    const createdAt = new Date().toISOString();
     setMeetingLogs([
       {
         id: 1,
@@ -72,7 +88,12 @@ export const MeetingScreen = ({
         role: "ファシリテーター",
         avatar: "",
         content: `会議を開始しました。\n進行モード: ${meetingMode === "exploration" ? "💡 探索モード (アイデア発散)" : "🎯 収束モード (決定事項整理)"}\n議題: 「${meetingAgenda}」\n\nAIメンバーがラウンドロビン順に発言を開始します。一時停止やスキップ操作も可能です。`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        memberId: null,
+        roundNumber: null,
+        messageType: "system",
+        interruptChainCount: 0,
+        createdAt,
+        time: new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     ]);
     setActiveMemberIdx(0);
@@ -118,6 +139,11 @@ export const MeetingScreen = ({
               role: "エラー",
               avatar: "",
               content: `⚠️ 会議の保存準備に失敗しました。会議を開始できません: ${String(err)}`,
+              memberId: null,
+              roundNumber: null,
+              messageType: "system",
+              interruptChainCount: 0,
+              createdAt: new Date().toISOString(),
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ]);
@@ -134,7 +160,8 @@ export const MeetingScreen = ({
 
   // チャットスクロール
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    chatEndRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }, [meetingLogs, isGenerating]);
 
   // 自動議論進行の主要ループ
@@ -183,6 +210,11 @@ export const MeetingScreen = ({
               role: "⚠️ 警告",
               avatar: "",
               content: `🚨 【${currentMember.name}】が使用するモデルのAPIキーが設定されていません（プロバイダー: ${providerType ?? "不明"}）。\n会議を一時停止しました。設定画面でAPIキーを登録してから「議論を再開」ボタンを押してください。`,
+              memberId: null,
+              roundNumber: null,
+              messageType: "system",
+              interruptChainCount: 0,
+              createdAt: new Date().toISOString(),
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ]);
@@ -273,6 +305,11 @@ export const MeetingScreen = ({
             role: currentMember.role,
             avatar: currentMember.avatar_id,
             content: replyContent,
+            memberId: currentMember.id,
+            roundNumber: turnCount + 1,
+            messageType: "assistant",
+            interruptChainCount: 0,
+            createdAt: new Date().toISOString(),
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ]);
@@ -297,6 +334,11 @@ export const MeetingScreen = ({
                     role: "システム",
                     avatar: "",
                     content: `⏱️ 議論の制限ターン数（最大${maxTurns}ターン）に到達したため、自動的に会議を締めくくります。`,
+                    memberId: null,
+                    roundNumber: null,
+                    messageType: "system",
+                    interruptChainCount: 0,
+                    createdAt: new Date().toISOString(),
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   }
                 ];
@@ -317,6 +359,11 @@ export const MeetingScreen = ({
             role: "エラー",
             avatar: "",
             content: `⚠️ 【${currentMember.name}】の通信中にエラーが発生しました: ${String(err)}`,
+            memberId: currentMember.id,
+            roundNumber: turnCount + 1,
+            messageType: "error",
+            interruptChainCount: 0,
+            createdAt: new Date().toISOString(),
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ]);
@@ -334,7 +381,8 @@ export const MeetingScreen = ({
     return () => clearTimeout(timer);
   }, [isPaused, isGenerating, isSummarizing, activeMemberIdx, dbInstance, activeMembers, meetingId, meetingLogs, turnCount]);
 
-  // 会議を締めくくってサマリーを作成する処理 (G8 - 堅牢なエラーフォールバック仕様)
+  // 会議を締めくくってレビュー用ドラフトを作成する。
+  // 永続化と学習登録はSummaryScreenでユーザーがdecisionを確定した後だけ行う。
   const handleGenerateSummary = async (forceAuto: boolean = false) => {
     if (isSummarizing) return; // 二重実行を完全にブロッキングする
 
@@ -356,7 +404,7 @@ export const MeetingScreen = ({
       .map(log => `${log.sender} (${log.role}): ${log.content}`)
       .join("\n\n");
 
-    const systemInstruction = `あなたはプロフェッショナルなAIカンパニーのファシリテーター兼議事録作成者です。これまでのAI専門家たちによる会議ログを注意深く読み、客観的で高精度な議論の要約（サマリー）を生成してください。`;
+    const systemInstruction = `あなたはプロフェッショナルなAIカンパニーの議事録作成者です。会議ログを客観的に整理し、指定されたJSONオブジェクトだけを返してください。Markdown、コードフェンス外の説明、decisionsキーは出力しないでください。`;
     const userPrompt = `
 今回の会議議題: 「${meetingAgenda}」
 進行モード: ${meetingMode === "exploration" ? "探索モード" : "収束モード"}
@@ -365,13 +413,9 @@ export const MeetingScreen = ({
 ${logsText}
 
 【指示】
-上記の会議内容に基づいて、以下の項目を含む詳細な議事録サマリーを日本語のMarkdown形式で作成してください：
-1. **論点・主な対立軸**: どのような議論が行われ、何が問題となったか。
-2. **メンバーごとの立場 (PRO/CON)**: 各メンバーが何に賛成し、何に懸念を示したか。
-3. **最終決定事項**: 今回の会議で合意された、あるいは方向性として決定した内容。
-4. **次のアクション (ToDo)**: 誰が、いつまでに、何を行うか（具体的なToDoの提案）。
-
-出力は、ユーザー（しいたけさん）が後からコピペして利用できる簡潔で構造的なMarkdownのみとしてください（前置きの雑談等は不要です）。
+以下のJSONスキーマに厳密に従ってください。キーはこの7個だけです。
+{"issues":["論点"],"proConTable":[{"issue":"論点","member":"メンバー名","stance":"立場","pro":"賛成理由","con":"懸念"}],"facts":["確認できた事実"],"openConcerns":["未解決の懸念"],"aiRecommendation":${meetingMode === "exploration" ? "null" : "\"提言\""},"memberAgreementLevels":[{"member":"メンバー名","level":0,"note":"根拠"}],"nextActions":[{"action":"次のアクション","owner":"担当","due":"期限"}]}
+decisionsは生成しないでください。結論・決定事項はユーザーが後から入力します。
 `;
 
     const fallbackResult = await callLLMWithFallback({
@@ -386,7 +430,18 @@ ${logsText}
       return;
     }
 
-    const summaryText = fallbackResult.response.content;
+    let structuredSummary: StructuredMeetingSummary;
+    try {
+      structuredSummary = parseStructuredMeetingSummary(fallbackResult.response.content, {
+        mode: meetingMode ?? undefined,
+      });
+    } catch (err) {
+      console.error("Structured summary validation failed", err);
+      alert(`議事録のJSON契約に適合しない応答でした。決定事項は保存されていません。\n\n${String(err)}`);
+      setIsSummarizing(false);
+      return;
+    }
+
     const finalProvider = fallbackResult.finalProvider;
     const finalModelId = fallbackResult.finalModelId;
     const summaryPromptTokens = fallbackResult.response.promptTokens;
@@ -395,21 +450,9 @@ ${logsText}
 
     try {
       const nowStr = new Date().toISOString();
-      if (dbInstance && meetingId === null) {
+      if (meetingId === null) {
         throw new Error("会議IDが未確定のため、議事録を保存できません");
       }
-
-      if (dbInstance && meetingId !== null) {
-        await closeMeeting(dbInstance, meetingId, nowStr);
-      }
-
-      await dbInstance?.execute(
-        "INSERT INTO meeting_summaries (meeting_id, mode, issues, decisions, next_actions, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [meetingId ?? 0, meetingMode || "探索", "論点整理", summaryText, "次回ToDo", nowStr, nowStr]
-      );
-
-      // AIが生成した候補や定型文は、ユーザー確認前に学習へ登録しない。
-      // S8で確定済みのdecisionsを保存するUIと専用経路は別タスクで実装する。
 
       // サマリー生成にかかったコストを最終累積に加算して callback を呼ぶ
       const finalPromptTokens = totalPromptTokens + summaryPromptTokens;
@@ -418,8 +461,8 @@ ${logsText}
 
       // API利用料金 of ログ挿入 (サマリー生成分)
       if (summaryPromptTokens > 0 && finalProvider) {
-        const logMemberId = activeMembers[0]?.id || 1; // 外国キー(FK)制約エラーを防ぐため、実在するメンバーIDを使用します
-        if (dbInstance && meetingId !== null) {
+        const logMemberId = activeMembers[0]?.id;
+        if (dbInstance && meetingId !== null && typeof logMemberId === "number" && Number.isInteger(logMemberId) && logMemberId > 0) {
           await insertMeetingUsageLog(dbInstance, {
             memberId: logMemberId,
             meetingId,
@@ -430,10 +473,41 @@ ${logsText}
             costUsd: summaryCost,
             createdAt: nowStr,
           });
+        } else {
+          // サマリー生成は特定メンバーに帰属しないため、参加者IDが確定して
+          // いない場合は利用ログを保存しない。架空IDでFKを満たしてはいけない。
+          console.warn("Summary usage log skipped because no real participant member ID is available");
         }
       }
 
-      onSummaryGenerated(summaryText, finalPromptTokens, finalCompletionTokens, finalCostVal);
+      const messages: MeetingMessageDraft[] = meetingLogs
+        .filter(log => log.sender !== "システム" && log.memberId !== null)
+        .map(log => ({
+          memberId: log.memberId,
+          roundNumber: log.roundNumber,
+          messageType: log.messageType,
+          content: log.content,
+          interruptChainCount: log.interruptChainCount,
+          createdAt: log.createdAt,
+        }));
+      const participantMemberIds = Array.from(new Set(
+        activeMembers.map(member => member.id).filter((id): id is number => Number.isInteger(id))
+      ));
+      const draft: MeetingReviewDraft = {
+        meetingId,
+        mode: meetingMode ?? "exploration",
+        summary: structuredSummary,
+        generatedAt: nowStr,
+      };
+
+      onSummaryGenerated(
+        draft,
+        finalPromptTokens,
+        finalCompletionTokens,
+        finalCostVal,
+        participantMemberIds,
+        messages
+      );
 
     } catch (err) {
       console.error("Summary database save failed", err);
@@ -457,19 +531,22 @@ ${logsText}
   };
 
   return (
-    <div style={{ display: 'flex', flex: '1 1 0%', minHeight: 0, height: '100%', gap: '24px', overflow: 'hidden' }}>
+    <div className="meeting-layout">
+
+      <details className="meeting-rail" open>
+        <summary>参加者と会議ステータス <span aria-hidden="true">⌄</span></summary>
 
       {/* 左サイドバー: 参加メンバーと進行ステータス */}
-      <div className="w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <div className="meeting-sidebar w-64 shrink-0 sidebar-wood rounded-lg flex flex-col p-4 gap-4">
         <div className="panel-paper p-3 text-center mb-2 shrink-0">
           <h2 className="font-title text-xl font-bold">会議ステータス 🎙️</h2>
         </div>
 
         {/* 進行状況インジケーター */}
-        <div className="bg-white/80 border border-[var(--color-border-inner)] rounded-lg p-3 text-xs flex flex-col gap-2 shrink-0 shadow-inner">
+        <div className="bg-[var(--color-surface)]/80 border border-[var(--color-border-inner)] rounded-lg p-3 text-xs flex flex-col gap-2 shrink-0 shadow-inner">
           <div className="flex justify-between items-center">
             <span className="font-bold text-[var(--color-text)]">状態:</span>
-            <span className={`px-2 py-0.5 rounded font-bold ${isPaused ? "bg-amber-100 text-amber-800" : isGenerating ? "bg-blue-100 text-blue-800 animate-pulse" : "bg-green-100 text-green-800"
+            <span role="status" className={`px-2 py-1 rounded font-bold ${isPaused ? "status-paused" : isGenerating ? "status-running motion-pulse" : "status-idle"
               }`}>
               {isPaused ? "一時停止中" : isGenerating ? "発言生成中" : "待機中"}
             </span>
@@ -483,8 +560,8 @@ ${logsText}
           <div>
             <span className="font-bold text-[var(--color-text)]">推定コスト:</span> ${totalCost.toFixed(5)}
           </div>
-          <div className="mt-1 border-t border-gray-200 pt-1 text-[10px] text-gray-400">
-            現在の話者: <span className="font-bold text-gray-700">{activeMembers[activeMemberIdx]?.name || "なし"}</span>
+          <div className="mt-1 border-t border-[var(--color-border-inner)] pt-1 text-[10px] text-[var(--color-text-sub)]">
+            現在の話者: <span className="font-bold text-[var(--color-text)]">{activeMembers[activeMemberIdx]?.name || "なし"}</span>
           </div>
         </div>
 
@@ -496,7 +573,7 @@ ${logsText}
             return (
               <div
                 key={member.id}
-                className={`bg-white border-2 rounded p-2 flex items-center gap-2 shadow-sm transition-all ${isActive ? "border-[var(--color-accent)] ring-2 ring-[var(--color-interrupt)]/20 scale-[1.02]" : "border-[var(--color-border-inner)]"
+                className={`bg-[var(--color-surface)] border-2 rounded p-2 flex items-center gap-2 shadow-sm transition-all ${isActive ? "border-[var(--color-accent)] ring-2 ring-[var(--color-interrupt)]/20 scale-[1.02]" : "border-[var(--color-border-inner)]"
                   }`}
                 style={{ borderLeft: `6px solid ${getRoleColor(member.role, member.dept_name)}` }}
               >
@@ -505,7 +582,7 @@ ${logsText}
                   style属性で直接 '32px' 固定幅と高さを指定し、Tailwindクラス解釈エラーや干渉による巨大化を100%防ぎます。
                 */}
                 <div
-                  className="rounded-full bg-gray-100 border border-gray-300 flex items-center justify-center overflow-hidden shrink-0 shadow-inner"
+                  className="rounded-full bg-[var(--color-panel)] border border-[var(--color-border-inner)] flex items-center justify-center overflow-hidden shrink-0 shadow-inner"
                   style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px' }}
                 >
                   {getAvatarPath(member.avatar_id) ? (
@@ -516,7 +593,7 @@ ${logsText}
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold truncate text-[var(--color-text)]">{member.name}</p>
-                  <p className="text-[9px] text-gray-500 truncate">{member.role}</p>
+                  <p className="text-[9px] text-[var(--color-text-sub)] truncate">{member.role}</p>
                 </div>
               </div>
             );
@@ -525,17 +602,18 @@ ${logsText}
 
         <button
           onClick={handleStopMeeting}
-          className="btn-secondary w-full justify-center shrink-0 py-3 text-red-700 hover:bg-red-50 border-red-200"
+          className="btn-secondary w-full justify-center shrink-0 py-3 text-[var(--color-danger-border)] hover:bg-[var(--color-surface-danger)] border-[var(--color-danger-border)]"
         >
           🚪 会議を終了する
         </button>
       </div>
+      </details>
 
       {/* 中央エリア: タイムラインとアジェンダ、操作パネル */}
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0%', minHeight: 0, height: '100%', overflow: 'hidden' }}>
+      <div className="meeting-center" style={{ display: 'flex', flexDirection: 'column' }}>
 
         {/* 会議の議題アジェンダ表示ヘッダー */}
-        <div className="panel-paper p-3 mb-3 bg-[#fdfbeb] border-2 border-[var(--color-border-inner)] shrink-0 flex flex-col gap-1">
+        <div className="panel-paper p-3 mb-3 bg-[var(--color-surface-soft)] border-2 border-[var(--color-border-inner)] shrink-0 flex flex-col gap-1">
           <span className="text-[10px] font-bold text-[var(--color-interrupt)] tracking-wider">📌 会議の議題 / AGENDA</span>
           <h3 className="font-bold text-sm text-[var(--color-text)] truncate" title={meetingAgenda}>
             {meetingAgenda}
@@ -544,7 +622,7 @@ ${logsText}
 
         {/* メッセージログ領域 */}
         <div
-          className="panel-paper flex-1 p-4 mb-4 bg-white/70 shadow-inner"
+          className="panel-paper flex-1 p-4 mb-4 bg-[var(--color-surface)]/70 shadow-inner"
           style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', minHeight: 0 }}
         >
           {meetingLogs.map((log) => {
@@ -553,8 +631,8 @@ ${logsText}
               <div
                 key={log.id}
                 className={`flex flex-col p-3 rounded-lg border-2 ${isSystem
-                  ? "bg-[#f5e6c8]/40 border-dashed border-[#c8a96e] text-[#5c4636]"
-                  : "bg-white border-[var(--color-border-inner)]"
+                  ? "bg-[var(--color-panel)]/40 border-dashed border-[var(--color-border-inner)] text-[var(--color-text-sub)]"
+                  : "bg-[var(--color-surface)] border-[var(--color-border-inner)]"
                   }`}
                 style={{
                   alignSelf: isSystem ? "center" : "flex-start",
@@ -563,28 +641,31 @@ ${logsText}
                 }}
               >
                 {!isSystem && (
-                  <div className="flex items-center gap-2 mb-1 border-b border-gray-100 pb-1">
+                  <div className="flex items-center gap-2 mb-1 border-b border-[var(--color-border-inner)] pb-1">
                     <span className="font-bold text-xs text-[var(--color-text)]">{log.sender}</span>
                     <span
-                      className="text-[9px] border px-1.5 py-0.2 rounded font-bold shadow-xs text-gray-700"
+                      className="text-[9px] border px-1.5 py-1 rounded font-bold shadow-xs text-[var(--color-text-sub)]"
                       style={{ backgroundColor: getRoleColor(log.role, log.sender) }}
                     >
                       {log.role}
                     </span>
+                    <span className="text-[8px] text-[var(--color-text-sub)] ml-auto" title={log.createdAt}>
+                      #{log.memberId} · R{log.roundNumber} · {log.messageType} · 割込 {log.interruptChainCount}
+                    </span>
                   </div>
                 )}
                 <p className="text-xs leading-relaxed whitespace-pre-wrap text-[var(--color-text)]">{log.content}</p>
-                <span className="text-[8px] text-gray-400 self-end mt-1">{log.time}</span>
+                <span className="text-[8px] text-[var(--color-text-sub)] self-end mt-1" title={log.createdAt}>{log.time}</span>
               </div>
             );
           })}
 
           {isGenerating && (
             <div
-              className="flex items-center gap-2.5 p-3 rounded-lg border-2 border-[var(--color-border-inner)] bg-white/80 animate-pulse"
+              className="flex items-center gap-2.5 p-3 rounded-lg border-2 border-[var(--color-border-inner)] bg-[var(--color-surface)]/80 motion-pulse"
               style={{ alignSelf: "flex-start", maxWidth: "80%", boxShadow: "2px 2px 0px var(--color-border-inner)" }}
             >
-              <span className="text-xs text-gray-500 font-bold">🤔 {activeMembers[activeMemberIdx]?.name} が発言を構成中...</span>
+              <span className="text-xs text-[var(--color-text-sub)] font-bold" role="status">🤔 {activeMembers[activeMemberIdx]?.name} が発言を構成中...</span>
             </div>
           )}
 
@@ -593,8 +674,8 @@ ${logsText}
               className="flex flex-col items-center justify-center p-6 rounded-lg border-2 border-dashed border-[var(--color-interrupt)] bg-[var(--color-bg)]/20 my-4"
               style={{ alignSelf: "center", width: "90%" }}
             >
-              <span className="text-2xl animate-spin">⏳</span>
-              <span className="text-xs font-bold text-[#b45309] mt-2">📖 議論ログを解析し、議事録サマリーを自動生成しています...</span>
+              <span className="text-2xl motion-spin" aria-hidden="true">⏳</span>
+              <span className="text-xs font-bold text-[var(--color-warning)] mt-2" role="status">📖 議論ログを解析し、議事録サマリーを自動生成しています...</span>
             </div>
           )}
 
@@ -637,32 +718,30 @@ ${logsText}
       </div>
 
       {/* 右サイドバー: リアルタイムホワイトボード */}
-      <div className="w-72 shrink-0 flex flex-col gap-4" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <details className="meeting-board-rail" open>
+        <summary>ホワイトボード <span aria-hidden="true">⌄</span></summary>
+      <div className="meeting-board w-72 shrink-0 flex flex-col gap-4">
         <div
-          className="panel-paper flex-1 bg-[#fbfcf7] border-4 border-[var(--color-border-outer)] rounded-xl p-4 flex flex-col gap-4 overflow-hidden"
-          style={{
-            boxShadow: "6px 6px 0px var(--color-border-outer)",
-            backgroundImage: "radial-gradient(#e5e7eb 1.5px, transparent 1.5px)",
-            backgroundSize: "20px 20px"
-          }}
+          className="panel-paper whiteboard-paper flex-1 bg-[var(--color-surface-board)] border-4 border-[var(--color-border-outer)] rounded-xl p-4 flex flex-col gap-4 overflow-hidden"
+          style={{ boxShadow: "6px 6px 0px var(--color-border-outer)" }}
         >
           <div className="border-b-[3px] border-double border-[var(--color-border-outer)] pb-2 flex justify-between items-center shrink-0">
             <span className="font-title text-2xl font-bold text-[var(--color-border-outer)] flex items-center gap-1.5">📋 WHITEBOARD</span>
-            <span className="text-[9px] bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full font-bold select-none">REALTIME</span>
+            <span className="text-[9px] status-info border border-[var(--color-info)] px-2 py-1 rounded-full font-bold select-none">REALTIME</span>
           </div>
 
           <div className="flex-1 flex flex-col gap-4 overflow-y-auto" style={{ fontFamily: "'M PLUS Rounded 1c', sans-serif" }}>
-            <div className="bg-blue-50/70 p-3 rounded-lg border-2 border-blue-200 shadow-sm flex flex-col gap-1 shrink-0">
-              <span className="font-bold text-xs text-blue-900 flex items-center gap-1">🚨 現在の重要課題:</span>
-              <p className="text-xs text-gray-700 leading-relaxed font-bold whitespace-pre-wrap">{boardState.currentIssue}</p>
+            <div className="bg-[var(--color-surface-info)]/70 p-3 rounded-lg border-2 border-[var(--color-info)] shadow-sm flex flex-col gap-1 shrink-0">
+              <span className="font-bold text-xs text-[var(--color-text)] flex items-center gap-1">🚨 現在の重要課題:</span>
+              <p className="text-xs text-[var(--color-text)] leading-relaxed font-bold whitespace-pre-wrap">{boardState.currentIssue}</p>
             </div>
 
-            <div className="bg-green-50/70 p-3 rounded-lg border-2 border-green-200 shadow-sm flex flex-col gap-1 shrink-0">
-              <span className="font-bold text-xs text-green-900 flex items-center gap-1">💡 考える方針 / 合意方向:</span>
-              <p className="text-xs text-gray-700 leading-relaxed font-bold whitespace-pre-wrap">{boardState.direction}</p>
+            <div className="bg-[var(--color-surface-info)]/70 p-3 rounded-lg border-2 border-[var(--color-success)] shadow-sm flex flex-col gap-1 shrink-0">
+              <span className="font-bold text-xs text-[var(--color-text)] flex items-center gap-1">💡 考える方針 / 合意方向:</span>
+              <p className="text-xs text-[var(--color-text)] leading-relaxed font-bold whitespace-pre-wrap">{boardState.direction}</p>
             </div>
 
-            <div className="border-t border-dashed border-gray-300 pt-3 mt-auto flex flex-col gap-1.5 shrink-0 bg-amber-50/50 p-2.5 rounded border border-amber-200">
+            <div className="border-t border-dashed border-[var(--color-border-inner)] pt-3 mt-auto flex flex-col gap-1.5 shrink-0 bg-[var(--color-surface-warning)]/50 p-2.5 rounded border border-[var(--color-warning)]">
               <span className="text-[10px] font-bold text-[var(--color-text-sub)]">📌 ファシリテーターメモ</span>
               <p className="text-[9.5px] text-[var(--color-text-sub)] leading-relaxed">
                 議論の進行に合わせて、AI専門家たちがホワイトボードの内容をリアルタイムに更新・整理します。
@@ -671,6 +750,7 @@ ${logsText}
           </div>
         </div>
       </div>
+      </details>
 
     </div>
   );

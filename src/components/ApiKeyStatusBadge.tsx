@@ -21,9 +21,9 @@ export const ApiKeyStatusBadge: React.FC<ApiKeyStatusBadgeProps> = ({
       onClick={onNavigateToSettings}
       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all duration-200 cursor-pointer border shadow-sm select-none"
       style={{
-        backgroundColor: "var(--color-paper, #fbf8f3)",
-        borderColor: "var(--color-border, #e5decf)",
-        color: "var(--color-ink, #2b2621)",
+        backgroundColor: "var(--color-surface-soft)",
+        borderColor: "var(--color-border-inner)",
+        color: "var(--color-text)",
         fontFamily: "'M PLUS Rounded 1c', sans-serif",
       }}
       title="クリックしてAPIキー設定を開く"

@@ -23,7 +23,7 @@ export const PromptTestScreen = ({
             onClick={() => setSelectedMemberId(1)}
             className={`flex-1 py-3 px-4 rounded-lg border-2 font-bold transition-all flex flex-col items-center gap-1 ${
               selectedMemberId === 1
-                ? "bg-[var(--color-interrupt)] text-white border-[#d97706] shadow-md"
+                ? "bg-[var(--color-interrupt)] text-[var(--color-text)] border-[var(--color-warning)] shadow-md"
                 : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
             }`}
           >
@@ -36,7 +36,7 @@ export const PromptTestScreen = ({
             onClick={() => setSelectedMemberId(2)}
             className={`flex-1 py-3 px-4 rounded-lg border-2 font-bold transition-all flex flex-col items-center gap-1 ${
               selectedMemberId === 2
-                ? "bg-[var(--color-interrupt)] text-white border-[#d97706] shadow-md"
+                ? "bg-[var(--color-interrupt)] text-[var(--color-text)] border-[var(--color-warning)] shadow-md"
                 : "bg-white text-[var(--color-text)] border-[var(--color-border-inner)] hover:bg-gray-50"
             }`}
           >
@@ -58,7 +58,7 @@ export const PromptTestScreen = ({
       {/* 出力結果表示エリア */}
       <div className="flex-1 flex flex-col gap-2 min-h-[450px]">
         <div className="flex justify-between items-center">
-          <h3 className="font-bold text-base flex items-center gap-1 text-[#5c4636]">
+          <h3 className="font-bold text-base flex items-center gap-1 text-[var(--color-text-sub)]">
             📝 マージ出力結果（最終システムプロンプト）:
           </h3>
           <span className="text-xs bg-[var(--color-border-inner)] text-white px-3 py-1 rounded font-bold shadow-sm">

@@ -31,10 +31,10 @@ export const ApiKeySetupScreen = ({
         <h2 className="font-bold text-lg flex items-center gap-1 text-[var(--color-text)]">
           🗝️ 初回設定: APIキーの安全な保管
         </h2>
-        <p className="text-sm leading-relaxed text-[#5c4636]">
+        <p className="text-sm leading-relaxed text-[var(--color-text-sub)]">
           AIカンパニーでは、ユーザーのプライバシーとセキュリティを守るため、APIキーをデータベースではなく、お使いのPCのシステム（Windows: 資格情報マネージャー、Mac: キーチェーン）の<strong>セキュアな金庫</strong>へ直接保管します。平文でディスクに書き込まれることはありません。
         </p>
-        <p className="text-xs text-[#8f6d53] italic mt-1">
+        <p className="text-xs text-[var(--color-text-sub)] italic mt-1">
           ※AI社員の稼働には、少なくとも1つのAPIキー（OpenAI / Anthropic / Gemini）の登録が必要です。
         </p>
       </div>
@@ -119,7 +119,7 @@ export const ApiKeySetupScreen = ({
                       />
                       <button
                         onClick={() => handleSaveKey(provider)}
-                        className="px-4 py-2 bg-[var(--color-interrupt)] hover:bg-[#d97706] text-white rounded-lg font-bold text-sm transition-all border border-[#d97706] shadow-sm flex items-center gap-1 shrink-0"
+                        className="px-4 py-2 bg-[var(--color-interrupt)] hover:bg-[var(--color-warning)] text-[var(--color-text)] rounded-lg font-bold text-sm transition-all border border-[var(--color-warning)] shadow-sm flex items-center gap-1 shrink-0"
                       >
                         📥 保存する
                       </button>
@@ -138,12 +138,12 @@ export const ApiKeySetupScreen = ({
         {hasAnyKey ? (
           <button
             onClick={() => setCurrentScreen("promptTest")}
-            className="px-8 py-3 bg-[var(--color-interrupt)] hover:bg-[#d97706] text-white font-extrabold rounded-lg shadow-md border-2 border-[#d97706] tracking-wider transition-all animate-bounce text-sm"
+            className="px-8 py-3 bg-[var(--color-interrupt)] hover:bg-[var(--color-warning)] text-[var(--color-text)] font-extrabold rounded-lg shadow-md border-2 border-[var(--color-warning)] tracking-wider transition-all motion-bounce text-sm"
           >
             ✨ APIキー設定完了！マージ検証に進む
           </button>
         ) : (
-          <p className="text-xs text-[#8f6d53] italic bg-[var(--color-panel)] px-4 py-2 border border-[var(--color-border-inner)] rounded-lg">
+          <p className="text-xs text-[var(--color-text-sub)] italic bg-[var(--color-panel)] px-4 py-2 border border-[var(--color-border-inner)] rounded-lg">
             ※アプリを動かすには、最低1つ以上のAPIキーを金庫に保存してください。
           </p>
         )}

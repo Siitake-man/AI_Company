@@ -129,7 +129,7 @@ export const CreateProjectScreen = ({
                   onClick={() => toggleDept(dept.key)}
                   className={`p-3 rounded-lg border-2 cursor-pointer transition-all flex items-start gap-3 shadow-sm select-none ${
                     isChecked
-                      ? "bg-[#fdfbeb] border-[var(--color-interrupt)]"
+                      ? "bg-[var(--color-surface-soft)] border-[var(--color-interrupt)]"
                       : "bg-white border-gray-200 hover:bg-gray-50 opacity-70"
                   }`}
                 >
