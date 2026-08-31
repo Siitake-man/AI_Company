@@ -52,6 +52,32 @@ describe("InMemoryKnowledgeVectorStore", () => {
     expect(results.map((result) => result.document.id)).toEqual(["meeting_summary:2:0"]);
   });
 
+  it("applies role and department retrieval lenses within a project", async () => {
+    const store = new InMemoryKnowledgeVectorStore();
+    await store.upsert([
+      {
+        ...document("strategy", 7, 1, [1, 0]),
+        metadata: { ...document("strategy", 7, 1, [1, 0]).metadata, role_category: "strategy", department_id: 10 },
+      },
+      {
+        ...document("legal", 7, 2, [0.99, 0.01]),
+        metadata: { ...document("legal", 7, 2, [0.99, 0.01]).metadata, role_category: "legal", department_id: 20 },
+      },
+      {
+        ...document("other-department", 7, 3, [0.98, 0.02]),
+        metadata: { ...document("other-department", 7, 3, [0.98, 0.02]).metadata, role_category: "strategy", department_id: 30 },
+      },
+    ]);
+
+    const results = await store.search(7, [1, 0], {
+      topK: 10,
+      roleCategory: "strategy",
+      departmentId: 10,
+    });
+
+    expect(results.map((result) => result.document.id)).toEqual(["strategy"]);
+  });
+
   it("rejects missing vectors and dimension mismatches", async () => {
     const store = new InMemoryKnowledgeVectorStore();
     await expect(store.upsert([{ ...document("missing", 7, 1, [1]), vector: undefined }]))

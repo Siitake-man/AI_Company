@@ -6,7 +6,7 @@ import { getMergedSystemPrompt } from "../lib/promptMerger";
 import { calculateCost } from "../lib/utils";
 import { callLLMWithPrompt, callLLMWithFallback, resolveApiKey } from "../lib/llmProvider";
 import { buildSpeakerPrompt } from "../lib/langchain/prompts";
-import { closeMeeting, createMeeting, insertMeetingUsageLog, MeetingMessageDraft } from "../lib/meetingPersistence";
+import { closeMeetingViaRust, createMeetingViaRust, insertMeetingUsageLogViaRust, MeetingMessageDraft } from "../lib/meetingPersistence";
 import { MeetingReviewDraft, parseStructuredMeetingSummary, StructuredMeetingSummary } from "../lib/meetingSummary";
 import {
   MAX_SAME_TARGET_INTERRUPTS,
@@ -164,8 +164,7 @@ export const MeetingScreen = ({
       if (!meetingDatabase || selectedProjectId == null || !meetingMode) return;
 
       try {
-        const createdMeetingId = await createMeeting(
-          meetingDatabase,
+        const createdMeetingId = await createMeetingViaRust(
           selectedProjectId,
           meetingMode,
           new Date().toISOString()
@@ -353,6 +352,11 @@ export const MeetingScreen = ({
             apiKey,
           });
           if (epoch !== generationEpochRef.current) return;
+          if (!result.ok) {
+            alert(`【${currentMember.name}】から応答を取得できませんでした。\n\n${result.error?.message ?? "AI APIエラー"}`);
+            pauseMeeting();
+            return;
+          }
 
           let replyContent = result.content;
           const pTokens = result.promptTokens;
@@ -385,7 +389,7 @@ export const MeetingScreen = ({
             setTotalPromptTokens(prev => prev + pTokens);
             setTotalCompletionTokens(prev => prev + cTokens);
             setTotalCost(prev => prev + cost);
-            await insertMeetingUsageLog(meetingDatabase, {
+            await insertMeetingUsageLogViaRust({
               memberId: currentMember.id,
               meetingId: activeMeetingId,
               provider: providerType,
@@ -461,31 +465,9 @@ export const MeetingScreen = ({
           }
         } catch (err) {
           if (epoch !== generationEpochRef.current) return;
-          console.error("Speaker fetch failed", err);
-          const createdAt = new Date().toISOString();
-          setMeetingLogs(prev => [
-            ...prev,
-            {
-              id: Date.now(),
-              sender: "システム",
-              role: "エラー",
-              avatar: "",
-              content: `⚠️ 【${currentMember.name}】の通信中にエラーが発生しました: ${String(err)}`,
-              memberId: currentMember.id,
-              roundNumber: isInterruptResponse ? responseRoundNumber : turnCount + 1,
-              messageType: "error",
-              interruptChainCount: isInterruptResponse ? generationState.interruptChainCount : 0,
-              createdAt,
-              time: new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            }
-          ]);
-          setInterruptState(prev =>
-            transitionMeetingInterruptState(prev, {
-              type: "speech-completed",
-              targetMemberId: currentMember.id,
-              nowMs: Date.now(),
-            })
-          );
+          console.error("Speaker fetch failed", err instanceof Error ? err.name : "unknown");
+          alert(`【${currentMember.name}】の通信中にエラーが発生しました。会議を一時停止しました。`);
+          pauseMeeting();
         } finally {
           if (epoch === generationEpochRef.current) {
             generationInFlightRef.current = false;
@@ -570,7 +552,7 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
     });
 
     if (!fallbackResult.finalProvider || !fallbackResult.response.content) {
-      alert(`議事録の作成に失敗しました。すべてのAPIキーでエラーが発生しました。\n\n詳細:\n${fallbackResult.errors.join("\n")}`);
+      alert(`議事録の作成に失敗しました。すべてのAPIキーでエラーが発生しました。\n\n詳細:\n${fallbackResult.errors.map(error => error.message).join("\n")}`);
       summaryLockRef.current = false;
       setIsSummarizing(false);
       return;
@@ -610,7 +592,7 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
       if (summaryPromptTokens > 0 && finalProvider) {
         const logMemberId = activeMembers[0]?.id;
         if (dbInstance && meetingId !== null && typeof logMemberId === "number" && Number.isInteger(logMemberId) && logMemberId > 0) {
-          await insertMeetingUsageLog(dbInstance, {
+          await insertMeetingUsageLogViaRust({
             memberId: logMemberId,
             meetingId,
             provider: finalProvider,
@@ -715,7 +697,7 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
     if (confirm("会議を終了してホームに戻りますか？今回の議論内容は破棄されます。")) {
       if (dbInstance && meetingId !== null) {
         try {
-          await closeMeeting(dbInstance, meetingId, new Date().toISOString());
+          await closeMeetingViaRust(meetingId, new Date().toISOString());
         } catch (err) {
           console.error("Meeting close failed", err);
         }

@@ -1,5 +1,6 @@
 import { Project, ProjectMember } from "../lib/types";
 import React, { useState, useEffect, useMemo } from "react";
+import { updateProjectViaRust } from "../lib/meetingPersistence";
 
 type HomeScreenProps = {
   dbInstance: any;
@@ -102,10 +103,12 @@ export const HomeScreen = React.memo(({
     if (!dbInstance || selectedProjectId === null) return;
     try {
       const nowStr = new Date().toISOString();
-      await dbInstance.execute(
-        'UPDATE projects SET purpose = ?, "values" = ?, updated_at = ? WHERE id = ?',
-        [editProjectPurpose, editProjectValues, nowStr, selectedProjectId]
-      );
+      await updateProjectViaRust({
+        projectId: selectedProjectId,
+        purpose: editProjectPurpose,
+        values: editProjectValues,
+        updatedAt: nowStr,
+      });
       await fetchProjects();
       setIsEditingProject(false);
     } catch (e) {

@@ -1,8 +1,11 @@
-import type { KnowledgeDocument, KnowledgeSourceType } from "./types";
+import type { KnowledgeDocument, KnowledgeRoleCategory, KnowledgeSourceType } from "./types";
 
 export interface VectorSearchOptions {
   topK?: number;
   minScore?: number;
+  /** Optional retrieval lens. Both filters are applied in addition to project_id. */
+  roleCategory?: KnowledgeRoleCategory;
+  departmentId?: number;
 }
 
 export interface VectorSearchResult {
@@ -73,9 +76,17 @@ export class InMemoryKnowledgeVectorStore implements KnowledgeVectorStore {
     if (!Number.isFinite(minScore)) {
       throw new Error("minScore must be finite");
     }
+    if (options.departmentId !== undefined && (!Number.isInteger(options.departmentId) || options.departmentId <= 0)) {
+      throw new Error("departmentId must be a positive integer");
+    }
 
     return [...this.documents.values()]
-      .filter((document) => document.project_id === projectId)
+      .filter((document) => {
+        if (document.project_id !== projectId) return false;
+        if (options.roleCategory && document.metadata.role_category !== options.roleCategory) return false;
+        if (options.departmentId !== undefined && document.metadata.department_id !== options.departmentId) return false;
+        return true;
+      })
       .map((document) => {
         const vector = validateVector(document.vector, `document ${document.id}`);
         if (vector.length !== query.length) {

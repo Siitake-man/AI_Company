@@ -18,14 +18,14 @@
 | P1 | S7割り込み状態機械（10秒強調・連鎖上限3） | **完了（2026-08-31）** | 発言中→割り込み受付中→一時停止中、10秒強調後も受付継続、pause/resume凍結、同一対象3回上限、応答待ち中の連打防止を実装。ユーザー割り込みと応答の `interrupt_chain_count` を確定保存経路へ統合。65テスト・本番ビルド成功 | `MeetingScreen.tsx`, `meetingInterruptState.ts`, `meetingInterruptState.test.ts`, `DESIGN_SPEC.md` §6.3, `DATA_SCHEMA.md` §2.3 |
 | P1 | ユーザー確認済み決定事項だけを学習化 | **完了（2026-08-16）** | AI提言とユーザー決定事項を分離。ユーザーが入力内容を確定して保存したトランザクション内でのみ `member_learnings` へ登録。空decisionは0件 | `MeetingScreen.tsx`, `SummaryScreen.tsx`, `meetingPersistence.ts`, `DESIGN_SPEC.md` 原則3/4, §6.3 |
 | P1 | 議事録の構造化JSON契約を実装 | **完了（2026-08-16）** | LLM出力を `issues/proConTable/facts/openConcerns/aiRecommendation/memberAgreementLevels/nextActions` に限定して検証。`decisions` はLLMに生成させず、空欄は空配列で保持 | `meetingSummary.ts`, `DATA_SCHEMA.md` §3.1 |
-| P1 | Tauri CSP・SQL/fs権限を最小化 | **進行中（CSP/fs: 2026-08-31完了）** | `csp: null` を廃止し、IPC・実使用LLM API・Fonts・asset protocolのみを許可。`dialog:allow-save` とDesktop/Downloads/Documents配下のwrite scopeへ縮小。SQL `allow-execute` の無制限性はRustコマンド境界化の残件 | `DESIGN_SPEC.md` §8, `tauri.conf.json`, `capabilities/default.json` |
-| P1 | LLM結果を成功・失敗の構造化型へ分離 | 未着手 | エラー文字列をチャット/会議ログへ保存しない。モデル判定・フォールバック判定を一元化 | `llmProvider.ts`, `ChatScreen.tsx`, `MeetingScreen.tsx` |
+| P1 | Tauri CSP・SQL/fs権限を最小化 | **進行中（CSP/fs: 2026-08-31、会議・設定・プロジェクト・メンバーwrite境界: 2026-08-31）** | `csp: null` を廃止し、IPC・実使用LLM API・Fonts・asset protocolのみを許可。`dialog:allow-save` とDesktop/Downloads/Documents配下のwrite scopeへ縮小。会議作成・利用量ログ・終了・S8確定保存・プロジェクト設定更新・モデル設定更新・メンバー更新/統計リセットを固定SQL・型付きRustコマンドへ移行済み。残りのfrontend `execute` と `sql:allow-execute` は段階移行の残件 | `DESIGN_SPEC.md` §8, `tauri.conf.json`, `capabilities/default.json`, `src-tauri/src/lib.rs` |
+| P1 | LLM結果を成功・失敗の構造化型へ分離 | **完了（2026-08-31）** | `LLMResponse.ok/error` と `LLMError` を導入。エラー文字列をチャット/会議ログへ保存せず、モデル判定・フォールバック判定を構造化型へ統一 | `llmProvider.ts`, `ChatScreen.tsx`, `MeetingScreen.tsx` |
 | P1 | デザインSSoTトークン・フォント・ボタンを統一 | **完了（2026-08-16）** | CSS変数・2フォント・共通ボタン、focus-visible/status、800×600折りたたみ/1100px以上3ペイン、reduced-motion、ローカルnoise SVGを同期 | `DESIGN_SYSTEM.md`, `index.css`, `src/components/` |
 | P2 | 800×600 details初期展開のUX | **改善余地あり** | 画面幅に応じた折りたたみは実装済み。details領域の初期展開状態は実ユーザーテストで調整する | `MeetingScreen.tsx`, `SummaryScreen.tsx` |
 | P2 | Tauri実機GUIでのDB保存前後E2E | **未実施（既知制約）** | ブラウザ/単体・DB契約検証は済み。実Tauri GUIで保存前後の表示とDB状態を突合する | `MeetingScreen.tsx`, `SummaryScreen.tsx`, `meetingPersistence.ts` |
 | P2 | Viteバンドル大chunk警告 | **既知警告** | ビルドは成功。大chunk分割は機能影響を確認したうえで別タスク化する | `vite.config.ts`, `package.json` |
 | P2 | `member_learnings` の取得を最新N件に制限 | 未着手 | `created_at DESC LIMIT 5` を4層マージとRAGフォールバックで共通化 | `promptMerger.ts`, `PHASE2_PLAN.md` §2.6 |
-| P2 | RAG `role_category` フィルタ契約を追加 | 未着手 | `VectorSearchOptions` と永続adapterに役割フィルタを追加 | `RAG_FOUNDATION.md`, `PHASE2_PLAN.md` §2.5 |
+| P2 | RAG `role_category` フィルタ契約を追加 | **完了（2026-08-31）** | `VectorSearchOptions` に `roleCategory` / `departmentId` を追加し、プロジェクト内の役割・部署フィルターを回帰テストで確認。永続adapterは同契約を実装する | `RAG_FOUNDATION.md`, `PHASE2_PLAN.md` §2.5 |
 | P2 | Rustマイグレーション・FK回帰テスト | 未着手 | V1→V3、孤立FKロールバック、`foreign_key_check` を自動化 | `src-tauri/src/`, `SQLITE_MIGRATION_V3.md` |
 | P2 | App/画面Propsの `any` と巨大コンポーネントを整理 | 未着手 | DB行型・画面型を定義し、初期化/キー/ルーティングを深いモジュールへ分割 | `App.tsx`, `src/components/` |
 | P2 | S4/S5/Settingsの未実装導線を補完 | 未着手 | メンバー追加、会議モード遷移、成長日誌CRUD、設定永続化を実装 | `DESIGN_SPEC.md` §6.3 |
@@ -51,3 +51,6 @@ flowchart TD
 | 2026-08-16 | S8確定保存・構造化JSON・UI SSoTを完了として更新。S7割り込み状態機械、CSP/Capabilities、構造化LLMエラー境界は次のDAGへ繰り越し。Tauri実機E2Eと800×600 details初期展開を既知の残件として登録。 |
 | 2026-08-31 | S7割り込み状態機械を完了として更新。10秒強調、常時受付、pause/resume凍結、同一対象3回上限、割り込みログ保存経路を実装し、65テスト・本番ビルドで検証。Tauri実機GUI E2Eは引き続き残件。 |
 | 2026-08-31 | CSP/Capabilities是正を部分完了として更新。`csp: null`、過剰な再帰書込み、未使用opener/dialog default/fs defaultを除去し、IPC/API/Fonts/assetの許可先とfs保存スコープを明示。SQL `allow-execute` と実機E2Eは残件。 |
+| 2026-08-31 | LLM結果の構造化エラー境界を完了。`ok/error` 判定で失敗応答をチャット・会議ログへ保存せず、フォールバックのエラー表示も安全なメッセージへ限定。 |
+| 2026-08-31 | SQL境界化を段階開始。会議作成・利用量ログ・終了・S8確定保存・プロジェクト設定更新を固定SQL・型付きRustコマンドへ移行し、残りのfrontend `execute` は継続課題として維持。 |
+| 2026-08-31 | 設定画面のサマリーモデル変更・全員モデル適用も固定SQL・型付きRustコマンドへ移行。`sql:allow-execute` は他の既存書き込み移行まで維持。 |

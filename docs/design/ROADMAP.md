@@ -113,7 +113,7 @@ flowchart TD
 
 1. **品質是正 P0: 会議ID/FK経路**: ✅ 2026-08-11完了。会議開始時に親行を作成し、実ID確定後に発言を開始する。DB実機回帰テストは追加タスク
 2. **品質是正 P1: 会議ログ・S7・S8学習・構造化議事録**: S8構造化JSON、会議ログ/参加者永続化、ユーザー確認済み学習は ✅ 2026-08-16。S7割り込み状態機械は ✅ 2026-08-31。詳細は `REVIEW_ACTION_REGISTER_20260811.md`
-3. **品質是正 P1: CSP/Capabilities・LLMエラー構造化・UI SSoT**: UI SSoTは ✅ 2026-08-16。CSP/CapabilitiesのCSP・fs/dialog境界は ✅ 2026-08-31、SQL `allow-execute` のRustコマンド境界化とLLMエラー構造化は未完了。セキュリティ境界を先に確定する
+3. **品質是正 P1: CSP/Capabilities・LLMエラー構造化・UI SSoT**: UI SSoTは ✅ 2026-08-16。CSP/CapabilitiesのCSP・fs/dialog境界とLLMエラー構造化は ✅ 2026-08-31。会議作成・利用量ログ・終了・S8 `finalize_meeting`・プロジェクト設定更新・モデル設定更新・メンバー更新/統計リセットは固定SQL・型付きRustコマンドへ移行済みで、残りのfrontend `execute` と `sql:allow-execute` の撤去を継続する
 4. **LangChain.js 導入（Phase 2a）: 完了**。`@langchain/core` + `@langchain/openai` + `@langchain/google-genai` を導入し、`src/lib/llmProvider.ts` に統一。Anthropicは自前fetchを維持
 5. **PromptTemplate 標準化（Phase 2b）: 完了**。`src/lib/langchain/prompts.ts` のテンプレートを会議発言生成へ統合し、回帰テストを追加
 6. **SQLite Version 3整合化: 完了（2026-08-11）**。`users.summary_model` をマイグレーションへ移し、運用テーブルを再構築して外部キーを保証
@@ -128,4 +128,4 @@ flowchart TD
 
 ## 次のDAG
 
-品質是正の次の依存順は、**CSP/CapabilitiesのSQL境界 → 構造化LLMエラー境界 → LanceDB** とする。CSP文字列とfs/dialog境界、S7割り込み状態機械は ✅ 2026-08-31完了。
+品質是正の次の依存順は、**CSP/CapabilitiesのSQL境界 → LanceDB** とする。CSP文字列とfs/dialog境界、構造化LLMエラー境界、S7割り込み状態機械は ✅ 2026-08-31完了。

@@ -10,11 +10,54 @@
 import { getApiKey, PROVIDERS, ProviderType } from "./apiKeyStore";
 import { BaseMessage, SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 
+export type LLMErrorCode =
+    | "unsupported_model"
+    | "missing_api_key"
+    | "provider_request_failed"
+    | "provider_response_invalid"
+    | "empty_response";
+
+/** UI・永続化境界をまたぐ構造化エラー。秘密情報や生のAPI応答は含めない。 */
+export interface LLMError {
+    code: LLMErrorCode;
+    message: string;
+    providerType: ProviderType | null;
+    modelId: string;
+    retryable: boolean;
+}
+
 /** LLM呼び出しの共通レスポンス型 */
 export interface LLMResponse {
+    ok: boolean;
     content: string;
     promptTokens: number;
     completionTokens: number;
+    error?: LLMError;
+}
+
+export interface LLMFallbackResult {
+    response: LLMResponse;
+    finalProvider: ProviderType | null;
+    finalModelId: string;
+    errors: LLMError[];
+}
+
+export function createLLMError(params: {
+    code: LLMErrorCode;
+    message: string;
+    providerType: ProviderType | null;
+    modelId: string;
+    retryable: boolean;
+}): LLMError {
+    return { ...params };
+}
+
+function successResponse(content: string, promptTokens = 0, completionTokens = 0): LLMResponse {
+    return { ok: true, content, promptTokens, completionTokens };
+}
+
+function failureResponse(error: LLMError): LLMResponse {
+    return { ok: false, content: "", promptTokens: 0, completionTokens: 0, error };
 }
 
 /** メッセージの型 */
@@ -63,16 +106,34 @@ async function callAnthropicWithFetch(
     });
     const data = await res.json();
     if (!res.ok) {
-        return { content: "APIリクエストエラー", promptTokens: 0, completionTokens: 0 };
+        return failureResponse(createLLMError({
+            code: "provider_request_failed",
+            message: `Anthropic APIリクエストに失敗しました（HTTP ${res.status}）。`,
+            providerType: PROVIDERS.ANTHROPIC,
+            modelId,
+            retryable: res.status >= 500 || res.status === 429,
+        }));
     }
     if (data.content?.[0]) {
-        return {
-            content: data.content[0].text,
-            promptTokens: data.usage?.input_tokens || 0,
-            completionTokens: data.usage?.output_tokens || 0,
-        };
+        const content = data.content[0].text;
+        if (typeof content !== "string" || !content.trim()) {
+            return failureResponse(createLLMError({
+                code: "provider_response_invalid",
+                message: "Anthropic APIの応答形式が不正です。",
+                providerType: PROVIDERS.ANTHROPIC,
+                modelId,
+                retryable: false,
+            }));
+        }
+        return successResponse(content, data.usage?.input_tokens || 0, data.usage?.output_tokens || 0);
     }
-    return { content: "API応答形式エラー", promptTokens: 0, completionTokens: 0 };
+    return failureResponse(createLLMError({
+        code: "provider_response_invalid",
+        message: "Anthropic APIの応答形式が不正です。",
+        providerType: PROVIDERS.ANTHROPIC,
+        modelId,
+        retryable: false,
+    }));
 }
 
 /** LangChain.js の ChatModel インスタンスを遅延生成（OpenAI / Gemini のみ） */
@@ -145,10 +206,22 @@ export async function callLLMWithHistory(params: {
     const providerType = detectProvider(modelId);
 
     if (!providerType) {
-        return { content: "未対応のモデルです: " + modelId, promptTokens: 0, completionTokens: 0 };
+        return failureResponse(createLLMError({
+            code: "unsupported_model",
+            message: "未対応のモデルです。設定画面で対応モデルを選択してください。",
+            providerType: null,
+            modelId,
+            retryable: false,
+        }));
     }
     if (!apiKey) {
-        return { content: "APIキーが設定されていません。設定画面からAPIキーを登録してください。", promptTokens: 0, completionTokens: 0 };
+        return failureResponse(createLLMError({
+            code: "missing_api_key",
+            message: "APIキーが設定されていません。設定画面からAPIキーを登録してください。",
+            providerType,
+            modelId,
+            retryable: false,
+        }));
     }
 
     try {
@@ -176,14 +249,26 @@ export async function callLLMWithHistory(params: {
 
         const { promptTokens, completionTokens } = extractTokens(response);
 
-        return { content: content || "（空の応答）", promptTokens, completionTokens };
+        if (!content.trim()) {
+            return failureResponse(createLLMError({
+                code: "empty_response",
+                message: "AIから空の応答が返されました。もう一度お試しください。",
+                providerType,
+                modelId,
+                retryable: true,
+            }));
+        }
+        return successResponse(content, promptTokens, completionTokens);
     } catch (apiErr) {
-        console.error("LLM API Call failed:", apiErr);
-        return {
-            content: "APIコールエラー: " + (apiErr instanceof Error ? apiErr.message : String(apiErr)),
-            promptTokens: 0,
-            completionTokens: 0,
-        };
+        // 生の例外にはURL・応答本文・環境依存情報が含まれる可能性があるため、ログにも出さない。
+        console.error("LLM API Call failed", { providerType, modelId, errorType: apiErr instanceof Error ? apiErr.name : "unknown" });
+        return failureResponse(createLLMError({
+            code: "provider_request_failed",
+            message: "AI APIへの接続に失敗しました。ネットワークとAPI設定を確認してください。",
+            providerType,
+            modelId,
+            retryable: true,
+        }));
     }
 }
 
@@ -195,12 +280,7 @@ export async function callLLMWithFallback(params: {
     preferredModelId: string;
     systemPrompt: string;
     userPrompt: string;
-}): Promise<{
-    response: LLMResponse;
-    finalProvider: ProviderType | null;
-    finalModelId: string;
-    errors: string[];
-}> {
+}): Promise<LLMFallbackResult> {
     const { preferredModelId, systemPrompt, userPrompt } = params;
 
     let firstProvider: ProviderType = PROVIDERS.GEMINI;
@@ -217,12 +297,18 @@ export async function callLLMWithFallback(params: {
         ...[PROVIDERS.OPENAI, PROVIDERS.ANTHROPIC, PROVIDERS.GEMINI].filter((p) => p !== firstProvider),
     ];
 
-    const errors: string[] = [];
+    const errors: LLMError[] = [];
 
     for (const prov of providersToTry) {
         const apiKey = (await getApiKey(prov as ProviderType)) || "";
         if (!apiKey) {
-            errors.push(`${prov}: APIキー未設定`);
+            errors.push(createLLMError({
+                code: "missing_api_key",
+                message: `${prov} のAPIキーが設定されていません。`,
+                providerType: prov,
+                modelId: preferredModelId,
+                retryable: false,
+            }));
             continue;
         }
 
@@ -242,7 +328,7 @@ export async function callLLMWithFallback(params: {
             apiKey,
         });
 
-        if (res.content && !res.content.startsWith("APIリクエストエラー") && !res.content.startsWith("APIコールエラー")) {
+        if (res.ok && res.content) {
             return {
                 response: res,
                 finalProvider: prov as ProviderType,
@@ -250,12 +336,18 @@ export async function callLLMWithFallback(params: {
                 errors,
             };
         } else {
-            errors.push(`${prov} (${modelId}): ${res.content}`);
+            if (res.error) errors.push(res.error);
         }
     }
 
     return {
-        response: { content: "", promptTokens: 0, completionTokens: 0 },
+        response: failureResponse(createLLMError({
+            code: "provider_request_failed",
+            message: "利用可能なAIプロバイダーから応答を得られませんでした。",
+            providerType: null,
+            modelId: preferredModelId,
+            retryable: true,
+        })),
         finalProvider: null,
         finalModelId: "",
         errors,

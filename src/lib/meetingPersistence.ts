@@ -54,6 +54,103 @@ export type FinalizeMeetingPayload = {
   generatedAt: string;
 };
 
+type RustFinalizeMeetingResponse = {
+  summaryId: number;
+  learningCount: number;
+};
+
+type RustCreateMeetingResponse = { meetingId: number };
+
+export async function createMeetingViaRust(
+  projectId: number,
+  mode: MeetingModeValue,
+  startedAt: string,
+): Promise<number> {
+  const result = await invoke<RustCreateMeetingResponse>("create_meeting", {
+    request: { projectId, mode, startedAt },
+  });
+  if (!Number.isInteger(result.meetingId) || result.meetingId <= 0) {
+    throw new Error("会議IDを取得できませんでした");
+  }
+  return result.meetingId;
+}
+
+export async function closeMeetingViaRust(meetingId: number, endedAt: string): Promise<void> {
+  await invoke("close_meeting", { request: { meetingId, endedAt } });
+}
+
+export async function insertMeetingUsageLogViaRust(params: {
+  memberId: number;
+  meetingId: number;
+  provider: string | null;
+  modelId: string;
+  promptTokens: number;
+  completionTokens: number;
+  costUsd: number;
+  createdAt: string;
+}): Promise<void> {
+  await invoke("insert_meeting_usage_log", {
+    request: {
+      memberId: params.memberId,
+      meetingId: params.meetingId,
+      provider: params.provider,
+      modelId: params.modelId,
+      promptTokens: params.promptTokens,
+      completionTokens: params.completionTokens,
+      costUsd: params.costUsd,
+      createdAt: params.createdAt,
+    },
+  });
+}
+
+export async function updateProjectViaRust(params: {
+  projectId: number;
+  purpose: string;
+  values: string;
+  updatedAt: string;
+}): Promise<void> {
+  await invoke("update_project", { request: params });
+}
+
+export async function updateSummaryModelViaRust(modelId: string, updatedAt: string): Promise<void> {
+  await invoke("update_summary_model", { request: { modelId, updatedAt } });
+}
+
+export async function bulkUpdateMemberModelsViaRust(modelId: string): Promise<number> {
+  return invoke<number>("bulk_update_member_models", { request: { modelId } });
+}
+
+export async function updateMemberViaRust(params: {
+  memberId: number;
+  name: string;
+  role: string;
+  personalityPrompt: string;
+  aiModel: string;
+  updatedAt: string;
+}): Promise<void> {
+  await invoke("update_member", { request: params });
+}
+
+export async function resetMemberUsageViaRust(memberId: number): Promise<number> {
+  return invoke<number>("reset_member_usage", { request: { memberId } });
+}
+
+/**
+ * S8の本番経路。任意SQLをfrontendから渡さず、Rustの固定SQLコマンドへ委譲する。
+ * 既存の `finalizeMeeting` はDB契約テストと移行期間の互換用に残す。
+ */
+export async function finalizeMeetingViaRust(
+  payload: FinalizeMeetingPayload,
+): Promise<{ summaryId: number; learningCount: number }> {
+  const result = await invoke<RustFinalizeMeetingResponse>("finalize_meeting", {
+    request: payload,
+  });
+  if (!Number.isInteger(result.summaryId) || result.summaryId <= 0 || !Number.isInteger(result.learningCount) || result.learningCount < 0) {
+    throw new Error("確定保存の応答形式が不正です");
+  }
+  return result;
+}
+
 /**
  * Create the parent meeting row before any child row is written.
  * SQLite V3 requires every usage/message/summary row to reference this id.
@@ -212,3 +309,4 @@ export async function finalizeMeeting(
     throw error;
   }
 }
+import { invoke } from "@tauri-apps/api/core";

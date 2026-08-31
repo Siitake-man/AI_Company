@@ -4,7 +4,7 @@
 
 **バージョン:** 0.3（レビュー反映版）
 **作成日:** 2026-07-20
-**最終更新日:** 2026-08-11
+**最終更新日:** 2026-08-31
 **関連ドキュメント:** [DESIGN_SPEC.md](./DESIGN_SPEC.md) §9, [DATA_SCHEMA.md](./DATA_SCHEMA.md) §6
 
 ---
@@ -29,7 +29,7 @@ Phase 2 ではこれらの「動くけど粗い」部分を、保守性・拡張
 |---|---|---|
 | LLM呼び出し | Phase 2aでOpenAI/GeminiはLangChain化。Anthropicのみ自前fetch | 新規プロバイダーは `llmProvider.ts` 内へカプセル化する |
 | プロンプト構築 | Phase 2bで `PromptTemplate` へ分離済み | サマリー生成等、残るプロンプトの段階的なテンプレート化 |
-| エラーハンドリング | 各APIのエラーレスポンスを個別にパースし、文字列を `content` に返す経路が残る | 構造化Resultへ分離し、エラーを会話ログへ保存しない |
+| エラーハンドリング | `LLMResponse.ok/error` と `LLMError` で成功・失敗を構造化 | 失敗応答を会話ログへ保存せず、安全なメッセージだけをUIへ表示 |
 | トークン管理 | 自前で `prompt_tokens / completion_tokens` を集計 | LangChain側で標準提供される機能の再実装 |
 | ストリーミング | 未対応（全レスポンス待ち） | UX改善の余地大 |
 
@@ -58,8 +58,8 @@ Phase 2の次タスクへ進む前に、Phase 1の実行時整合性と仕様契
 | P1 | `meeting_messages` / `meeting_participants` 未保存 | 会議終了時に議事録と同じトランザクションで保存 | ✅ 完了（2026-08-16） |
 | P1 | S7割り込み状態機械未実装 | 10秒強調・一時停止・連鎖最大3回をDB契約と接続 | ✅ 完了（2026-08-31） |
 | P1 | AI決定事項の無断学習 | AI生成の自動学習経路は停止済み。S8でユーザー確定 `decisions` を入力・保存し、確定後のみ学習 | ✅ 完了（2026-08-16） |
-| P1 | CSP/SQL/fs権限 | 許可先と保存先を最小化し、`csp: null` と再帰書込みを廃止 | 未着手 |
-| P1 | LLMエラーの文字列成功扱い | `{ ok, content, error }` 境界とモデル判定の一元化 | 未着手 |
+| P1 | CSP/SQL/fs権限 | 許可先と保存先を最小化し、`csp: null` と再帰書込みを廃止 | CSP/fs/dialogは完了（2026-08-31）。会議作成・利用量ログ・終了・S8確定保存・プロジェクト設定更新・モデル設定更新・メンバー更新/統計リセットは固定SQL・型付きRustコマンドへ移行済み。残りのfrontend `execute` と `sql:allow-execute` は段階移行の残件 |
+| P1 | LLMエラーの文字列成功扱い | `{ ok, content, error }` 境界とモデル判定の一元化 | ✅ 完了（2026-08-31） |
 
 タスクの依存関係と完了条件は [REVIEW_ACTION_REGISTER_20260811.md](./REVIEW_ACTION_REGISTER_20260811.md) を参照する。
 
@@ -267,7 +267,7 @@ flowchart TD
 | ✅ 基盤完了 | RAG基盤：SQLiteソースadapter・決定的チャンク・埋め込み/検索契約 | — | `KnowledgeSource` → `KnowledgeDocument[]`、OpenAI Embeddings adapter、プロジェクトfilter付き検索、回帰テスト（2026-08-11） |
 | 🟡 P1 | RAG: LanceDB adapterの導入 | 30分 | ①依存関係と永続スキーマ → ②`KnowledgeVectorStore` 実装 → ③再起動後の読み出しテスト |
 | 🟢 P2 | RAG: 議事録保存時に自動チャンク化＋ベクトル保存（自動学習パイプライン） | 30分 | ①`SummaryScreen` 保存フック → ②埋め込み → ③LanceDB登録 |
-| 🟢 P2 | RAG: role_categoryフィルターによる「違うレンズ」検索の実装 | 20分 | ①検索関数の作成 → ②`getMergedSystemPrompt` への統合 |
+| 🟢 P2 | RAG: role_categoryフィルターによる「違うレンズ」検索の実装 | 契約完了（2026-08-31） | `VectorSearchOptions` の `roleCategory` / `departmentId` フィルターと回帰テストを追加。残りはLanceDB永続adapter・`getMergedSystemPrompt` への統合 |
 | 🔵 P3 | Phase 2c: ワークフロー型会議への移行 | 60分 | ①`workflow.ts` 作成 → ②既存ループの置き換え → ③結合テスト |
 | 🔵 P3 | コアプロフィールの本格作り込み（他AIからの情報抽出UI） | 30分 | ①UIコンポーネント設計 → ②プロンプトテンプレート作成 |
 
@@ -326,3 +326,5 @@ flowchart TD
 | 2026-08-11 | Codex | RAGの埋め込みプロバイダー契約・OpenAI adapter・プロジェクト単位のベクトル検索契約（インメモリ実装付き）を追加。 |
 | 2026-08-11 | Codex | Holistic reviewを反映。P0会議ID/FK経路を修正し、会議ログ永続化・S7割り込み・ユーザー確認済み学習・セキュリティ境界をPhase 2の最優先是正タスクへ移動。 |
 | 2026-08-31 | Codex | 会議ログ永続化・ユーザー確認済み学習・S7割り込み状態機械の完了を同期。次の品質是正をCSP/Capabilitiesと構造化LLMエラー境界に更新。 |
+| 2026-08-31 | Codex | LLM結果の構造化エラー境界を実装。`ok/error` 判定で失敗応答をチャット・会議ログへ保存しない経路へ統一。 |
+| 2026-08-31 | Codex | S8 `finalize_meeting` を固定SQL・型付きRustコマンドへ移行し、会議参加者・発言・議事録・確定決定事項学習・終了状態を単一トランザクションで保存。frontendの残りのwriteは段階移行として継続。 |

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { ProviderType, PROVIDERS } from "../lib/apiKeyStore";
 import { message } from "@tauri-apps/plugin-dialog";
+import { bulkUpdateMemberModelsViaRust, updateSummaryModelViaRust } from "../lib/meetingPersistence";
 
 type SettingsScreenProps = {
   apiKeysStatus: { [key in ProviderType]?: boolean };
@@ -93,10 +94,7 @@ export const SettingsScreen = React.memo(({
 
     try {
       setBulkUpdateSuccess("");
-      await dbInstance.execute(
-        "UPDATE members SET ai_model = ?",
-        [selectedBulkModel]
-      );
+      await bulkUpdateMemberModelsViaRust(selectedBulkModel);
       setBulkUpdateSuccess(`すべてのAI社員のモデルを「${modelName}」に一括適用しました！`);
       await fetchMembers(); // App.tsx側のメンバー一覧をリロード
     } catch (e) {
@@ -109,10 +107,7 @@ export const SettingsScreen = React.memo(({
   const handleSaveSummaryModel = async (modelId: string) => {
     if (!dbInstance) return;
     try {
-      await dbInstance.execute(
-        "UPDATE users SET summary_model = ?, updated_at = ? WHERE id = 1",
-        [modelId, new Date().toISOString()]
-      );
+      await updateSummaryModelViaRust(modelId, new Date().toISOString());
       setSummaryModel(modelId);
     } catch (e) {
       console.error("Failed to update summary model", e);

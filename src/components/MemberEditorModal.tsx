@@ -1,3 +1,5 @@
+import { resetMemberUsageViaRust, updateMemberViaRust } from "../lib/meetingPersistence";
+
 type MemberEditorModalProps = {
   editingMember: any;
   setEditingMember: (member: any) => void;
@@ -127,7 +129,7 @@ export const MemberEditorModal = ({
                              <button className="btn-secondary text-xs text-[var(--color-danger)] border-[var(--color-danger)] px-2 py-1" onClick={async () => {
                                  if (window.confirm("このメンバーの利用統計をリセットしますか？")) {
                                      if (dbInstance && editingMember) {
-                                         await dbInstance.execute("DELETE FROM api_usage_logs WHERE member_id = ?", [editingMember.id]);
+                                         await resetMemberUsageViaRust(editingMember.id);
                                          setMemberStats({prompt_tokens: 0, completion_tokens: 0, total_cost: 0});
                                          fetchMembers(); // Update team list badges
                                      }
@@ -168,10 +170,14 @@ export const MemberEditorModal = ({
                   if (dbInstance && editingMember) {
                     try {
                       const nowStr = new Date().toISOString();
-                      await dbInstance.execute(
-                        "UPDATE members SET name = ?, role = ?, personality_prompt = ?, ai_model = ?, updated_at = ? WHERE id = ?",
-                        [editMemberName, editMemberRole, editMemberPersonality, editMemberModel, nowStr, editingMember.id]
-                      );
+                      await updateMemberViaRust({
+                        memberId: editingMember.id,
+                        name: editMemberName,
+                        role: editMemberRole,
+                        personalityPrompt: editMemberPersonality,
+                        aiModel: editMemberModel,
+                        updatedAt: nowStr,
+                      });
                       setEditingMember(null);
                       await fetchMembers(); // メンバー一覧をリロード
                     } catch (err) {

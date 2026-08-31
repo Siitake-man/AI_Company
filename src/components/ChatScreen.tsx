@@ -270,6 +270,10 @@ export const ChatScreen = ({
               messages: formattedMsgs.map(m => ({ role: m.role, content: m.content })),
               apiKey,
             });
+            if (!result.ok) {
+              alert(result.error?.message ?? "AIから応答を取得できませんでした。");
+              return;
+            }
             let replyContent = result.content;
             let pTokens = result.promptTokens;
             let cTokens = result.completionTokens;

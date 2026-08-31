@@ -3,7 +3,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import Database from "@tauri-apps/plugin-sql";
 import { renderMarkdown } from "../lib/markdownRenderer";
-import { finalizeMeeting, FinalizeMeetingPayload, MeetingMessageDraft } from "../lib/meetingPersistence";
+import { finalizeMeetingViaRust, FinalizeMeetingPayload, MeetingMessageDraft } from "../lib/meetingPersistence";
 import { MeetingReviewDraft } from "../lib/meetingSummary";
 
 type SummaryScreenProps = {
@@ -69,7 +69,7 @@ export const SummaryScreen = ({ dbInstance, draft, participantMemberIds, message
       generatedAt: draft.generatedAt,
     };
     try {
-      const result = await finalizeMeeting(dbInstance, payload);
+      const result = await finalizeMeetingViaRust(payload);
       setSaveResult(result);
     } catch (err) {
       setSaveError(`確定保存に失敗しました。入力内容は保持されています。${String(err)}`);
