@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Local database created by the external Neo Secretary MCP server
+neo_secretary.db*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -50,7 +50,6 @@ flowchart TD
     style J fill:#fdf6e3,stroke:#c8a96e
     style D4 fill:#fef3c7,stroke:#c8a96e  %% review follow-up
     style E5 fill:#fef3c7,stroke:#c8a96e  %% review follow-up
-    style F7 fill:#fef3c7,stroke:#c8a96e  %% review follow-up
     style G8 fill:#fef3c7,stroke:#c8a96e  %% review follow-up
     style I fill:#fef3c7,stroke:#c8a96e  %% review follow-up
 ```
@@ -71,7 +70,7 @@ flowchart TD
 | E5 | S5 メンバーエディタ | ⚠️ 継承元表示は実装済み。成長日誌の手動追記・編集・削除は未完了 |
 | E6 | S6 1on1チャット | ✅ 2026-07-16完了（Jules導入のセッション化に伴うDBマイグレーション漏れ修正と開通確認完了） |
 | F7A | 会議モード選択 | ✅ 2026-07-16完了（HomeScreenからの起動、探索/収束選択とMeetingScreenへの遷移確認済） |
-| F7 | S7 会議モード | ⚠️ ラウンドロビン発言・一時停止・APIキーガードは実装済み。割り込み状態機械、10秒強調、連鎖上限3の永続化は未完了 |
+| F7 | S7 会議モード | ✅ 2026-08-31完了（ラウンドロビン、10秒強調後も有効な割り込み、pause/resume凍結、同一対象3回上限、割り込みログ確定保存を実装。Tauri実機GUI E2Eは残件） |
 | G8 | S8 議事録・サマリー | ✅ 2026-08-16完了（構造化JSON契約、実会議IDのログ/参加者保存、ユーザー確定決定事項の学習経路、単一トランザクションのrollbackを実装。Tauri実機E2Eは残件） |
 | H | Markdownエクスポート | ✅ 2026-07-16完了（tauri-plugin-fs / dialogを利用して実装済） |
 | I | Phase 1完了・社内発表 | ⚠️ 機能実装済み。ただしholistic reviewでP0/P1の品質・仕様差分を検出。是正完了後に正式完了とする |
@@ -113,8 +112,8 @@ flowchart TD
 ## Phase 2（来月以降・優先順位順）
 
 1. **品質是正 P0: 会議ID/FK経路**: ✅ 2026-08-11完了。会議開始時に親行を作成し、実ID確定後に発言を開始する。DB実機回帰テストは追加タスク
-2. **品質是正 P1: 会議ログ・S7・S8学習・構造化議事録**: S8構造化JSON、会議ログ/参加者永続化、ユーザー確認済み学習は ✅ 2026-08-16。S7割り込み状態機械は未着手。詳細は `REVIEW_ACTION_REGISTER_20260811.md`
-3. **品質是正 P1: CSP/Capabilities・LLMエラー構造化・UI SSoT**: UI SSoTは ✅ 2026-08-16。CSP/Capabilities・LLMエラー構造化は未着手。セキュリティ境界を先に確定する
+2. **品質是正 P1: 会議ログ・S7・S8学習・構造化議事録**: S8構造化JSON、会議ログ/参加者永続化、ユーザー確認済み学習は ✅ 2026-08-16。S7割り込み状態機械は ✅ 2026-08-31。詳細は `REVIEW_ACTION_REGISTER_20260811.md`
+3. **品質是正 P1: CSP/Capabilities・LLMエラー構造化・UI SSoT**: UI SSoTは ✅ 2026-08-16。CSP/CapabilitiesのCSP・fs/dialog境界は ✅ 2026-08-31、SQL `allow-execute` のRustコマンド境界化とLLMエラー構造化は未完了。セキュリティ境界を先に確定する
 4. **LangChain.js 導入（Phase 2a）: 完了**。`@langchain/core` + `@langchain/openai` + `@langchain/google-genai` を導入し、`src/lib/llmProvider.ts` に統一。Anthropicは自前fetchを維持
 5. **PromptTemplate 標準化（Phase 2b）: 完了**。`src/lib/langchain/prompts.ts` のテンプレートを会議発言生成へ統合し、回帰テストを追加
 6. **SQLite Version 3整合化: 完了（2026-08-11）**。`users.summary_model` をマイグレーションへ移し、運用テーブルを再構築して外部キーを保証
@@ -129,4 +128,4 @@ flowchart TD
 
 ## 次のDAG
 
-品質是正の次の依存順は、**S7割り込み状態機械 → CSP/Capabilities → 構造化LLMエラー境界 → LanceDB** とする。
+品質是正の次の依存順は、**CSP/CapabilitiesのSQL境界 → 構造化LLMエラー境界 → LanceDB** とする。CSP文字列とfs/dialog境界、S7割り込み状態機械は ✅ 2026-08-31完了。

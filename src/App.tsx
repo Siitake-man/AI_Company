@@ -215,7 +215,9 @@ function App() {
         statusText.push("Gemini: 接続中...");
         setModelSyncStatus(statusText.join(" | "));
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
+          const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+            headers: { "x-goog-api-key": geminiKey }
+          });
           if (res.ok) {
             const data = await res.json();
             if (data && Array.isArray(data.models)) {

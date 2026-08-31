@@ -5,16 +5,21 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default",
     "sql:allow-load",
     "sql:allow-execute",
     "sql:allow-select",
-    "dialog:default",
-    "fs:default",
+    "dialog:allow-save",
     "fs:allow-write-text-file",
-    "fs:allow-home-write-recursive",
-    "fs:allow-desktop-write-recursive",
-    "fs:allow-download-write-recursive",
-    "fs:allow-document-write-recursive"
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$DESKTOP" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOWNLOAD" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DOCUMENT" },
+        { "path": "$DOCUMENT/**" }
+      ]
+    }
   ]
 }

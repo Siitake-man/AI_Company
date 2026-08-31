@@ -55,9 +55,9 @@ Phase 2の次タスクへ進む前に、Phase 1の実行時整合性と仕様契
 | 優先度 | 課題 | 方針 | 状態 |
 |---|---|---|---|
 | P0 | 会議中の `meeting_id=999` | 会議開始時に親行を作成し、実ID確定後に発言ループ開始 | ✅ 完了（2026-08-11） |
-| P1 | `meeting_messages` / `meeting_participants` 未保存 | 会議終了時に議事録と同じトランザクションで保存 | 未着手 |
-| P1 | S7割り込み状態機械未実装 | 10秒強調・一時停止・連鎖最大3回をDB契約と接続 | 未着手 |
-| P1 | AI決定事項の無断学習 | AI生成の自動学習経路は停止済み。S8でユーザー確定 `decisions` を入力・保存し、確定後のみ学習 | 進行中 |
+| P1 | `meeting_messages` / `meeting_participants` 未保存 | 会議終了時に議事録と同じトランザクションで保存 | ✅ 完了（2026-08-16） |
+| P1 | S7割り込み状態機械未実装 | 10秒強調・一時停止・連鎖最大3回をDB契約と接続 | ✅ 完了（2026-08-31） |
+| P1 | AI決定事項の無断学習 | AI生成の自動学習経路は停止済み。S8でユーザー確定 `decisions` を入力・保存し、確定後のみ学習 | ✅ 完了（2026-08-16） |
 | P1 | CSP/SQL/fs権限 | 許可先と保存先を最小化し、`csp: null` と再帰書込みを廃止 | 未着手 |
 | P1 | LLMエラーの文字列成功扱い | `{ ok, content, error }` 境界とモデル判定の一元化 | 未着手 |
 
@@ -258,8 +258,8 @@ flowchart TD
 |---|---|---|---|
 | 🔴 P0 | 会議ID/FK経路のDB実機回帰テスト | 15分 | ①V3 fixtureへ会議を作成 → ②利用量ログINSERT → ③発言保存を確認 |
 | 🔴 P1 | 会議ログ・参加者・構造化議事録の永続化 | 30分 | ①messages/participants INSERT → ②summary JSON検証 → ③同一トランザクション化 |
-| 🔴 P1 | S7割り込み状態機械とユーザー確認済み学習 | 30分 | ①状態enum → ②連鎖上限3 → ③S8決定保存時のみlearning INSERT |
-| 🔴 P1 | CSP/Capabilities・LLMエラー境界・UI SSoT是正 | 45分 | ①権限表 → ②Result型 → ③トークン監査 |
+| ✅ 完了 | S7割り込み状態機械とユーザー確認済み学習 | 30分 | 2026-08-31までに状態enum・連鎖上限3・S8決定保存時のみlearning INSERTを実装 |
+| 🟡 P1 | CSP/Capabilities・LLMエラー境界・UI SSoT是正 | 45分 | CSP文字列とfs/dialog境界は2026-08-31完了。残りは①SQL allow-executeのRust境界化 → ②Result型 → ③トークン監査 |
 | 🟡 P1 | Phase 2a: `@langchain/core` + 各プロバイダーのインストール | 完了 | 実装済み。新規プロバイダーは `llmProvider.ts` の契約内へ追加 |
 | 🟡 P1 | RAG: LanceDBの導入 + `project_knowledge` テーブル作成 | 30分 | ①LanceDBインストール → ②スキーマ定義 → ③ダミーデータ投入テスト |
 | ✅ 完了 | Phase 2b: `prompts.ts` によるテンプレート管理 | — | 2026-08-11 完了 |
@@ -325,3 +325,4 @@ flowchart TD
 | 2026-08-11 | Codex | Phase 2a・Phase 2b完了、RAG未着手の実装状況を同期。 |
 | 2026-08-11 | Codex | RAGの埋め込みプロバイダー契約・OpenAI adapter・プロジェクト単位のベクトル検索契約（インメモリ実装付き）を追加。 |
 | 2026-08-11 | Codex | Holistic reviewを反映。P0会議ID/FK経路を修正し、会議ログ永続化・S7割り込み・ユーザー確認済み学習・セキュリティ境界をPhase 2の最優先是正タスクへ移動。 |
+| 2026-08-31 | Codex | 会議ログ永続化・ユーザー確認済み学習・S7割り込み状態機械の完了を同期。次の品質是正をCSP/Capabilitiesと構造化LLMエラー境界に更新。 |

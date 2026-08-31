@@ -8,6 +8,14 @@ import { callLLMWithPrompt, callLLMWithFallback, resolveApiKey } from "../lib/ll
 import { buildSpeakerPrompt } from "../lib/langchain/prompts";
 import { closeMeeting, createMeeting, insertMeetingUsageLog, MeetingMessageDraft } from "../lib/meetingPersistence";
 import { MeetingReviewDraft, parseStructuredMeetingSummary, StructuredMeetingSummary } from "../lib/meetingSummary";
+import {
+  MAX_SAME_TARGET_INTERRUPTS,
+  canInterrupt,
+  createMeetingInterruptState,
+  getHighlightRemainingMs,
+  transitionMeetingInterruptState,
+  MeetingInterruptState,
+} from "../lib/meetingInterruptState";
 
 type MeetingLog = {
   id: number;
@@ -56,11 +64,15 @@ export const MeetingScreen = ({
   const activeMembers = projectMembers.filter(m => m.is_active_in_meeting !== 0);
 
   // 状態変数
-  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [interruptState, setInterruptState] = useState<MeetingInterruptState>(() =>
+    createMeetingInterruptState(Date.now())
+  );
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeMemberIdx, setActiveMemberIdx] = useState<number>(0);
   const [meetingLogs, setMeetingLogs] = useState<MeetingLog[]>([]);
   const [isSummarizing, setIsSummarizing] = useState<boolean>(false);
+  const [interruptText, setInterruptText] = useState<string>("");
+  const [highlightRemainingMs, setHighlightRemainingMs] = useState<number>(0);
 
   // 会議中の累積トークン・コスト・ターン数およびホワイトボード状態
   const [totalPromptTokens, setTotalPromptTokens] = useState<number>(0);
@@ -77,6 +89,24 @@ export const MeetingScreen = ({
   });
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const meetingLogsRef = useRef<MeetingLog[]>([]);
+  const generationEpochRef = useRef<number>(0);
+  const generationInFlightRef = useRef<boolean>(false);
+  const summaryLockRef = useRef<boolean>(false);
+  const summaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPaused = interruptState.phase === "paused";
+
+  const pauseMeeting = () => {
+    setInterruptState(prev =>
+      transitionMeetingInterruptState(prev, { type: "pause", nowMs: Date.now() })
+    );
+  };
+
+  const resumeMeeting = () => {
+    setInterruptState(prev =>
+      transitionMeetingInterruptState(prev, { type: "resume", nowMs: Date.now() })
+    );
+  };
 
   // 初期メッセージのセットアップ
   useEffect(() => {
@@ -97,18 +127,31 @@ export const MeetingScreen = ({
       }
     ]);
     setActiveMemberIdx(0);
-    setIsPaused(false);
+    generationEpochRef.current += 1;
+    generationInFlightRef.current = false;
+    summaryLockRef.current = false;
+    if (summaryTimerRef.current) {
+      clearTimeout(summaryTimerRef.current);
+      summaryTimerRef.current = null;
+    }
     setIsGenerating(false);
     setTurnCount(0);
     setTotalPromptTokens(0);
     setTotalCompletionTokens(0);
     setTotalCost(0);
     setMeetingId(null);
+    setInterruptState(createMeetingInterruptState(Date.now()));
+    setInterruptText("");
+    setHighlightRemainingMs(0);
     setBoardState({
       currentIssue: "議論進行中。発言から自動で要点を抽出します...",
       direction: "アジェンダに沿って発散・収束を行います"
     });
   }, [meetingAgenda, meetingMode]);
+
+  useEffect(() => {
+    meetingLogsRef.current = meetingLogs;
+  }, [meetingLogs]);
 
   // 会議開始時に親行を作成する。Version 3のFKにより、発言中の
   // api_usage_logsを仮IDへ紐付けることはできないため、実IDが取れるまで
@@ -147,7 +190,7 @@ export const MeetingScreen = ({
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ]);
-          setIsPaused(true);
+          pauseMeeting();
         }
       }
     };
@@ -164,229 +207,330 @@ export const MeetingScreen = ({
     chatEndRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }, [meetingLogs, isGenerating]);
 
-  // 自動議論進行の主要ループ
+  // 10秒の視覚強調と、その後の通常ラウンドロビン引き継ぎを管理する。
+  // 一時停止中は状態機械側に残時間を保持させ、タイマーを作らない。
   useEffect(() => {
-    if (!dbInstance) return;
-    const meetingDatabase = dbInstance;
-    if (meetingId === null) return;
-    const activeMeetingId: number = meetingId;
-    // ガード句 (ターン上限到達時もループ停止)
     if (
+      meetingId === null ||
+      isSummarizing ||
+      interruptState.phase !== "interrupt-window"
+    ) {
+      setHighlightRemainingMs(
+        interruptState.phase === "paused"
+          ? getHighlightRemainingMs(interruptState, Date.now())
+          : 0
+      );
+      return;
+    }
+
+    let cancelled = false;
+    const updateRemaining = () => {
+      if (!cancelled) {
+        setHighlightRemainingMs(getHighlightRemainingMs(interruptState, Date.now()));
+      }
+    };
+    updateRemaining();
+    const tickTimer = setInterval(updateRemaining, 250);
+    const remainingMs = getHighlightRemainingMs(interruptState, Date.now());
+    const handoffTimer = setTimeout(() => {
+      if (cancelled || summaryLockRef.current || turnCount >= maxTurns) return;
+      setInterruptState(prev =>
+        transitionMeetingInterruptState(prev, { type: "tick", nowMs: Date.now() })
+      );
+      setActiveMemberIdx(prev => (prev + 1) % activeMembers.length);
+    }, Math.max(0, remainingMs));
+
+    return () => {
+      cancelled = true;
+      clearInterval(tickTimer);
+      clearTimeout(handoffTimer);
+    };
+  }, [
+    meetingId,
+    isSummarizing,
+    interruptState.phase,
+    interruptState.updatedAtMs,
+    turnCount,
+    maxTurns,
+    activeMembers.length,
+  ]);
+
+  // 自動議論進行の主要ループ。応答中の再入をrefで抑止する。
+  useEffect(() => {
+    if (
+      !dbInstance ||
+      meetingId === null ||
       isPaused ||
       isGenerating ||
       isSummarizing ||
+      generationInFlightRef.current ||
       activeMembers.length === 0 ||
       meetingLogs.length === 0 ||
-      turnCount >= maxTurns
+      turnCount >= maxTurns ||
+      interruptState.phase !== "speaking"
     ) {
       return;
     }
 
-    let timer: ReturnType<typeof setTimeout>;
+    const meetingDatabase = dbInstance;
+    const activeMeetingId = meetingId;
+    const epoch = generationEpochRef.current;
+    const timer = setTimeout(() => {
+      if (generationInFlightRef.current || summaryLockRef.current) return;
 
-    async function runNextSpeaker() {
-      setIsGenerating(true);
       const currentMember = activeMembers[activeMemberIdx];
+      if (!currentMember) return;
+      generationInFlightRef.current = true;
+      setIsGenerating(true);
+      const generationState = interruptState;
+      const isInterruptResponse =
+        generationState.targetMemberId === currentMember.id &&
+        generationState.interruptChainCount > 0;
+      const previousMemberLog = [...meetingLogsRef.current]
+        .reverse()
+        .find(log => log.memberId === currentMember.id && log.roundNumber !== null);
+      const responseRoundNumber = previousMemberLog?.roundNumber ?? turnCount + 1;
 
-      try {
-        // 1. システムプロンプトの取得 (4層マージ)
-        const sysPrompt = await getMergedSystemPrompt(meetingDatabase, {
-          userId: 1,
-          projectId: selectedProjectId!,
-          memberId: currentMember.id
-        });
+      const runNextSpeaker = async () => {
+        setInterruptState(prev =>
+          transitionMeetingInterruptState(prev, {
+            type: "speech-started",
+            targetMemberId: currentMember.id,
+            nowMs: Date.now(),
+          })
+        );
 
-        // 2. APIキーとモデルの特定（llmProviderのresolveApiKeyを利用）
-        const modelId = currentMember.ai_model || "gpt-4o";
-        const { providerType, apiKey } = await resolveApiKey(modelId);
+        try {
+          const sysPrompt = await getMergedSystemPrompt(meetingDatabase, {
+            userId: 1,
+            projectId: selectedProjectId!,
+            memberId: currentMember.id
+          });
+          const modelId = currentMember.ai_model || "gpt-4o";
+          const { providerType, apiKey } = await resolveApiKey(modelId);
 
-        if (!apiKey) {
-          // APIキー未設定時は会議を安全に一時停止し、ユーザーに気づかせる
+          if (!apiKey) {
+            if (epoch !== generationEpochRef.current) return;
+            setMeetingLogs(prev => [
+              ...prev,
+              {
+                id: Date.now(),
+                sender: "システム",
+                role: "⚠️ 警告",
+                avatar: "",
+                content: `🚨 【${currentMember.name}】が使用するモデルのAPIキーが設定されていません（プロバイダー: ${providerType ?? "不明"}）。\n会議を一時停止しました。設定画面でAPIキーを登録してから「議論を再開」ボタンを押してください。`,
+                memberId: null,
+                roundNumber: null,
+                messageType: "system",
+                interruptChainCount: 0,
+                createdAt: new Date().toISOString(),
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              }
+            ]);
+            pauseMeeting();
+            return;
+          }
+
+          const historyText = meetingLogsRef.current
+            .filter(log => log.sender !== "システム")
+            .map(log => `${log.sender} (${log.role}): ${log.content}`)
+            .join("\n\n");
+          const basePrompt = await buildSpeakerPrompt({
+            agenda: meetingAgenda,
+            mode: meetingMode === "exploration"
+              ? "探索モード（自由にアイデアを出し合って広げる）"
+              : "収束モード（ToDoや決定事項、結論の整理にフォーカスする）",
+            history: historyText || "（議論の開始です。最初の発言をお願いします）",
+            role: currentMember.role,
+          });
+          const userPrompt = isInterruptResponse
+            ? `${basePrompt}\n\nこれはユーザー割り込みへの応答です。割り込み内容を踏まえ、あなたの立場を補足・修正してください。`
+            : basePrompt;
+          const result = await callLLMWithPrompt({
+            modelId,
+            systemPrompt: sysPrompt,
+            userPrompt,
+            apiKey,
+          });
+          if (epoch !== generationEpochRef.current) return;
+
+          let replyContent = result.content;
+          const pTokens = result.promptTokens;
+          const cTokens = result.completionTokens;
+          let parsedIssue = boardState.currentIssue;
+          let parsedDirection = boardState.direction;
+          if (replyContent) {
+            const boardRegex = /\[BOARD\]([\s\S]*?)\[\/BOARD\]/;
+            const match = replyContent.match(boardRegex);
+            if (match) {
+              const boardContent = match[1];
+              boardContent.split("|").forEach(part => {
+                const pair = part.split(":");
+                if (pair.length >= 2) {
+                  const key = pair[0].trim();
+                  const val = pair.slice(1).join(":").trim();
+                  if (key.includes("課題")) parsedIssue = val;
+                  else if (key.includes("方針") || key.includes("方向") || key.includes("合意")) parsedDirection = val;
+                } else {
+                  parsedIssue = boardContent.trim();
+                }
+              });
+              replyContent = replyContent.replace(boardRegex, "").trim();
+              setBoardState({ currentIssue: parsedIssue, direction: parsedDirection });
+            }
+          }
+
+          if (pTokens > 0 || cTokens > 0) {
+            const cost = calculateCost(modelId, pTokens, cTokens);
+            setTotalPromptTokens(prev => prev + pTokens);
+            setTotalCompletionTokens(prev => prev + cTokens);
+            setTotalCost(prev => prev + cost);
+            await insertMeetingUsageLog(meetingDatabase, {
+              memberId: currentMember.id,
+              meetingId: activeMeetingId,
+              provider: providerType,
+              modelId,
+              promptTokens: pTokens,
+              completionTokens: cTokens,
+              costUsd: cost,
+              createdAt: new Date().toISOString(),
+            });
+          }
+          if (epoch !== generationEpochRef.current) return;
+
+          const createdAt = new Date().toISOString();
+          const nextCount = isInterruptResponse
+            ? generationState.interruptChainCount
+            : 0;
+          setMeetingLogs(prev => [
+            ...prev,
+            {
+              id: Date.now(),
+              sender: currentMember.name,
+              role: currentMember.role,
+              avatar: currentMember.avatar_id,
+              content: replyContent,
+              memberId: currentMember.id,
+              roundNumber: isInterruptResponse ? responseRoundNumber : turnCount + 1,
+              messageType: isInterruptResponse ? "割り込みへの応答" : "通常発言",
+              interruptChainCount: nextCount,
+              createdAt,
+              time: new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            }
+          ]);
+          setInterruptState(prev =>
+            transitionMeetingInterruptState(prev, {
+              type: "speech-completed",
+              targetMemberId: currentMember.id,
+              nowMs: Date.now(),
+            })
+          );
+
+          if (!isInterruptResponse) {
+            setTurnCount(prev => {
+              const nextTurnCount = prev + 1;
+              if (nextTurnCount >= maxTurns) {
+                if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
+                summaryTimerRef.current = setTimeout(() => {
+                  if (summaryLockRef.current || epoch !== generationEpochRef.current) return;
+                  setMeetingLogs(prevLogs => {
+                    const hasSysLog = prevLogs.some(l => l.sender === "システム" && l.content.includes("制限ターン数"));
+                    if (hasSysLog) return prevLogs;
+                    return [
+                      ...prevLogs,
+                      {
+                        id: Date.now(),
+                        sender: "システム",
+                        role: "システム",
+                        avatar: "",
+                        content: `⏱️ 議論の制限ターン数（最大${maxTurns}ターン）に到達したため、自動的に会議を締めくくります。`,
+                        memberId: null,
+                        roundNumber: null,
+                        messageType: "system",
+                        interruptChainCount: 0,
+                        createdAt: new Date().toISOString(),
+                        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      }
+                    ];
+                  });
+                  void handleGenerateSummary(true);
+                }, 1000);
+              }
+              return nextTurnCount;
+            });
+          }
+        } catch (err) {
+          if (epoch !== generationEpochRef.current) return;
+          console.error("Speaker fetch failed", err);
+          const createdAt = new Date().toISOString();
           setMeetingLogs(prev => [
             ...prev,
             {
               id: Date.now(),
               sender: "システム",
-              role: "⚠️ 警告",
+              role: "エラー",
               avatar: "",
-              content: `🚨 【${currentMember.name}】が使用するモデルのAPIキーが設定されていません（プロバイダー: ${providerType ?? "不明"}）。\n会議を一時停止しました。設定画面でAPIキーを登録してから「議論を再開」ボタンを押してください。`,
-              memberId: null,
-              roundNumber: null,
-              messageType: "system",
-              interruptChainCount: 0,
-              createdAt: new Date().toISOString(),
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              content: `⚠️ 【${currentMember.name}】の通信中にエラーが発生しました: ${String(err)}`,
+              memberId: currentMember.id,
+              roundNumber: isInterruptResponse ? responseRoundNumber : turnCount + 1,
+              messageType: "error",
+              interruptChainCount: isInterruptResponse ? generationState.interruptChainCount : 0,
+              createdAt,
+              time: new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             }
           ]);
-          setIsPaused(true);  // スキップではなく一時停止
-          setIsGenerating(false);
-          return;
-        }
-
-        // 3. 発言履歴の構築 (システムメッセージを除く直近の発言)
-        const historyText = meetingLogs
-          .filter(log => log.sender !== "システム")
-          .map(log => `${log.sender} (${log.role}): ${log.content}`)
-          .join("\n\n");
-
-        // 4. ユーザープロンプト（コンテキスト）の構築（より深い議論の要求と、ホワイトボードタグ指示の埋め込み）
-        const userPrompt = await buildSpeakerPrompt({
-          agenda: meetingAgenda,
-          mode: meetingMode === "exploration" ? "探索モード（自由にアイデアを出し合って広げる）" : "収束モード（ToDoや決定事項、結論の整理にフォーカスする）",
-          history: historyText || "（議論の開始です。最初の発言をお願いします）",
-          role: currentMember.role,
-        });
-
-        // 5. APIコール（llmProviderに統一）
-        const result = await callLLMWithPrompt({
-          modelId,
-          systemPrompt: sysPrompt,
-          userPrompt: userPrompt,
-          apiKey,
-        });
-        let replyContent = result.content;
-        let pTokens = result.promptTokens;
-        let cTokens = result.completionTokens;
-
-        // BOARDタグのパース
-        let parsedIssue = boardState.currentIssue;
-        let parsedDirection = boardState.direction;
-
-        if (replyContent) {
-          const boardRegex = /\[BOARD\]([\s\S]*?)\[\/BOARD\]/;
-          const match = replyContent.match(boardRegex);
-          if (match) {
-            const boardContent = match[1];
-            const parts = boardContent.split("|");
-            parts.forEach(part => {
-              const pair = part.split(":");
-              if (pair.length >= 2) {
-                const key = pair[0].trim();
-                const val = pair.slice(1).join(":").trim();
-                if (key.includes("課題")) {
-                  parsedIssue = val;
-                } else if (key.includes("方針") || key.includes("方向") || key.includes("合意")) {
-                  parsedDirection = val;
-                }
-              } else {
-                parsedIssue = boardContent.trim();
-              }
-            });
-            replyContent = replyContent.replace(boardRegex, "").trim();
-            setBoardState({ currentIssue: parsedIssue, direction: parsedDirection });
+          setInterruptState(prev =>
+            transitionMeetingInterruptState(prev, {
+              type: "speech-completed",
+              targetMemberId: currentMember.id,
+              nowMs: Date.now(),
+            })
+          );
+        } finally {
+          if (epoch === generationEpochRef.current) {
+            generationInFlightRef.current = false;
+            setIsGenerating(false);
           }
         }
+      };
 
-        // 6. API利用料金のログ挿入 & 累積
-        if (pTokens > 0 || cTokens > 0) {
-          const cost = calculateCost(modelId, pTokens, cTokens);
-          setTotalPromptTokens(prev => prev + pTokens);
-          setTotalCompletionTokens(prev => prev + cTokens);
-          setTotalCost(prev => prev + cost);
-
-          await insertMeetingUsageLog(meetingDatabase, {
-            memberId: currentMember.id,
-            meetingId: activeMeetingId,
-            provider: providerType,
-            modelId,
-            promptTokens: pTokens,
-            completionTokens: cTokens,
-            costUsd: cost,
-            createdAt: new Date().toISOString(),
-          });
-        }
-
-        // 7. 会議ログに追加
-        setMeetingLogs(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            sender: currentMember.name,
-            role: currentMember.role,
-            avatar: currentMember.avatar_id,
-            content: replyContent,
-            memberId: currentMember.id,
-            roundNumber: turnCount + 1,
-            messageType: "assistant",
-            interruptChainCount: 0,
-            createdAt: new Date().toISOString(),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-
-        // 8. 発言インデックスを進める & ターン数加算
-        setActiveMemberIdx((prev) => (prev + 1) % activeMembers.length);
-        setTurnCount(prev => {
-          const nextCount = prev + 1;
-          if (nextCount >= maxTurns) {
-            // 即座に一時停止にして、非同期での多重ループ進行を防ぐ
-            setIsPaused(true);
-            // 最大ターンに達したら自動でサマリー生成へ
-            setTimeout(() => {
-              setMeetingLogs(prevLogs => {
-                const hasSysLog = prevLogs.some(l => l.sender === "システム" && l.content.includes("制限ターン数"));
-                if (hasSysLog) return prevLogs;
-                return [
-                  ...prevLogs,
-                  {
-                    id: Date.now(),
-                    sender: "システム",
-                    role: "システム",
-                    avatar: "",
-                    content: `⏱️ 議論の制限ターン数（最大${maxTurns}ターン）に到達したため、自動的に会議を締めくくります。`,
-                    memberId: null,
-                    roundNumber: null,
-                    messageType: "system",
-                    interruptChainCount: 0,
-                    createdAt: new Date().toISOString(),
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  }
-                ];
-              });
-              handleGenerateSummary(true);
-            }, 1000);
-          }
-          return nextCount;
-        });
-
-      } catch (err) {
-        console.error("Speaker fetch failed", err);
-        setMeetingLogs(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            sender: "システム",
-            role: "エラー",
-            avatar: "",
-            content: `⚠️ 【${currentMember.name}】の通信中にエラーが発生しました: ${String(err)}`,
-            memberId: currentMember.id,
-            roundNumber: turnCount + 1,
-            messageType: "error",
-            interruptChainCount: 0,
-            createdAt: new Date().toISOString(),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-        setActiveMemberIdx((prev) => (prev + 1) % activeMembers.length);
-      } finally {
-        setIsGenerating(false);
-      }
-    }
-
-    // 2.5秒の思考遅延を入れてループ進行
-    timer = setTimeout(() => {
-      runNextSpeaker();
+      void runNextSpeaker();
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [isPaused, isGenerating, isSummarizing, activeMemberIdx, dbInstance, activeMembers, meetingId, meetingLogs, turnCount]);
+  }, [
+    isPaused,
+    isGenerating,
+    isSummarizing,
+    activeMemberIdx,
+    dbInstance,
+    activeMembers,
+    meetingId,
+    meetingLogs.length,
+    turnCount,
+    interruptState.phase,
+    interruptState.targetMemberId,
+    interruptState.interruptChainCount,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      generationEpochRef.current += 1;
+      generationInFlightRef.current = false;
+      if (summaryTimerRef.current) {
+        clearTimeout(summaryTimerRef.current);
+        summaryTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // 会議を締めくくってレビュー用ドラフトを作成する。
   // 永続化と学習登録はSummaryScreenでユーザーがdecisionを確定した後だけ行う。
   const handleGenerateSummary = async (forceAuto: boolean = false) => {
-    if (isSummarizing) return; // 二重実行を完全にブロッキングする
+    if (isSummarizing || summaryLockRef.current) return; // 二重実行を完全にブロッキングする
 
-    if (meetingLogs.length <= 1) {
+    const logsSnapshot = meetingLogsRef.current;
+    if (logsSnapshot.length <= 1) {
       alert("十分な議論のログがありません。もう少し議論を進めてください。");
       return;
     }
@@ -395,11 +539,12 @@ export const MeetingScreen = ({
       return;
     }
 
+    summaryLockRef.current = true;
     setIsSummarizing(true);
-    setIsPaused(true);
+    pauseMeeting();
 
     // ログのテキスト化
-    const logsText = meetingLogs
+    const logsText = logsSnapshot
       .filter(log => log.sender !== "システム")
       .map(log => `${log.sender} (${log.role}): ${log.content}`)
       .join("\n\n");
@@ -426,6 +571,7 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
 
     if (!fallbackResult.finalProvider || !fallbackResult.response.content) {
       alert(`議事録の作成に失敗しました。すべてのAPIキーでエラーが発生しました。\n\n詳細:\n${fallbackResult.errors.join("\n")}`);
+      summaryLockRef.current = false;
       setIsSummarizing(false);
       return;
     }
@@ -438,6 +584,7 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
     } catch (err) {
       console.error("Structured summary validation failed", err);
       alert(`議事録のJSON契約に適合しない応答でした。決定事項は保存されていません。\n\n${String(err)}`);
+      summaryLockRef.current = false;
       setIsSummarizing(false);
       return;
     }
@@ -480,8 +627,8 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
         }
       }
 
-      const messages: MeetingMessageDraft[] = meetingLogs
-        .filter(log => log.sender !== "システム" && log.memberId !== null)
+      const messages: MeetingMessageDraft[] = logsSnapshot
+        .filter(log => log.sender !== "システム")
         .map(log => ({
           memberId: log.memberId,
           roundNumber: log.roundNumber,
@@ -513,8 +660,55 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
       console.error("Summary database save failed", err);
       alert(`DBへの保存中にエラーが発生しました: ${String(err)}`);
     } finally {
+      summaryLockRef.current = false;
       setIsSummarizing(false);
     }
+  };
+
+  const handleInterruptSubmit = () => {
+    const targetMemberId = interruptState.targetMemberId;
+    const content = interruptText.trim();
+    if (
+      !content ||
+      targetMemberId === null ||
+      isPaused ||
+      isGenerating ||
+      isSummarizing ||
+      !canInterrupt(interruptState, targetMemberId)
+    ) {
+      return;
+    }
+
+    const targetIndex = activeMembers.findIndex(member => member.id === targetMemberId);
+    if (targetIndex < 0) return;
+
+    const now = Date.now();
+    const interruptChainCount = interruptState.interruptChainCount + 1;
+    setActiveMemberIdx(targetIndex);
+    setInterruptState(prev =>
+      transitionMeetingInterruptState(prev, {
+        type: "interrupt-submitted",
+        targetMemberId,
+        nowMs: now,
+      })
+    );
+    setMeetingLogs(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        sender: "あなた",
+        role: "ユーザー",
+        avatar: "",
+        content,
+        memberId: null,
+        roundNumber: null,
+        messageType: "ユーザー割り込み",
+        interruptChainCount,
+        createdAt: new Date(now).toISOString(),
+        time: new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      }
+    ]);
+    setInterruptText("");
   };
 
   const handleStopMeeting = async () => {
@@ -627,13 +821,20 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
         >
           {meetingLogs.map((log) => {
             const isSystem = log.sender === "システム";
+            const isUserInterrupt = log.messageType === "ユーザー割り込み";
+            const isHighlighted =
+              log.memberId !== null &&
+              log.memberId === interruptState.targetMemberId &&
+              highlightRemainingMs > 0;
             return (
               <div
                 key={log.id}
                 className={`flex flex-col p-3 rounded-lg border-2 ${isSystem
                   ? "bg-[var(--color-panel)]/40 border-dashed border-[var(--color-border-inner)] text-[var(--color-text-sub)]"
-                  : "bg-[var(--color-surface)] border-[var(--color-border-inner)]"
-                  }`}
+                  : isUserInterrupt
+                    ? "bg-[var(--color-surface-info)] border-[var(--color-info)]"
+                    : "bg-[var(--color-surface)] border-[var(--color-border-inner)]"
+                  } ${isHighlighted ? "border-[var(--color-interrupt)] motion-pulse" : ""}`}
                 style={{
                   alignSelf: isSystem ? "center" : "flex-start",
                   maxWidth: isSystem ? "95%" : "85%",
@@ -643,14 +844,11 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
                 {!isSystem && (
                   <div className="flex items-center gap-2 mb-1 border-b border-[var(--color-border-inner)] pb-1">
                     <span className="font-bold text-xs text-[var(--color-text)]">{log.sender}</span>
-                    <span
-                      className="text-[9px] border px-1.5 py-1 rounded font-bold shadow-xs text-[var(--color-text-sub)]"
-                      style={{ backgroundColor: getRoleColor(log.role, log.sender) }}
-                    >
+                    <span className="text-[9px] border px-1.5 py-1 rounded font-bold shadow-xs text-[var(--color-text-sub)]">
                       {log.role}
                     </span>
                     <span className="text-[8px] text-[var(--color-text-sub)] ml-auto" title={log.createdAt}>
-                      #{log.memberId} · R{log.roundNumber} · {log.messageType} · 割込 {log.interruptChainCount}
+                      {log.memberId === null ? "ユーザー" : `#${log.memberId}`} · {log.roundNumber === null ? "R-" : `R${log.roundNumber}`} · {log.messageType} · 割込 {log.interruptChainCount}
                     </span>
                   </div>
                 )}
@@ -685,11 +883,11 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
         {/* コントロールフッター */}
         <div
           className="border-t-2 border-[var(--color-border-inner)] bg-[var(--color-panel)] flex justify-between items-center rounded-lg shadow-sm"
-          style={{ padding: '12px 20px', flexShrink: 0 }}
+          style={{ padding: '12px 20px', flexShrink: 0, gap: '12px', flexWrap: 'wrap' }}
         >
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button
-              onClick={() => setIsPaused(!isPaused)}
+              onClick={() => (isPaused ? resumeMeeting() : pauseMeeting())}
               className="btn-secondary text-xs py-2 px-4 font-bold"
               disabled={isSummarizing}
             >
@@ -704,6 +902,47 @@ decisionsは生成しないでください。結論・決定事項はユーザ�
             >
               ⏭️ 次の話者へ
             </button>
+          </div>
+
+          <div className="flex items-center gap-2 min-w-[280px] flex-1" aria-label="割り込み操作">
+            <label htmlFor="meeting-interrupt-text" className="sr-only">割り込み内容</label>
+            <textarea
+              id="meeting-interrupt-text"
+              value={interruptText}
+              onChange={event => setInterruptText(event.target.value)}
+              onKeyDown={event => {
+                if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  handleInterruptSubmit();
+                }
+              }}
+              placeholder="割り込み内容を入力"
+              rows={2}
+              className="flex-1 min-w-0 rounded border-2 border-[var(--color-border-inner)] bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-text)]"
+              disabled={isPaused || isGenerating || isSummarizing || !canInterrupt(interruptState)}
+              aria-describedby="meeting-interrupt-status"
+            />
+            <button
+              type="button"
+              onClick={handleInterruptSubmit}
+              disabled={
+                isPaused ||
+                isGenerating ||
+                isSummarizing ||
+                !interruptText.trim() ||
+                !canInterrupt(interruptState)
+              }
+              className="btn-primary text-xs py-2 px-3 disabled:opacity-50 font-bold"
+            >
+              割り込む
+            </button>
+            <span id="meeting-interrupt-status" role="status" className="sr-only">
+              {interruptState.targetMemberId === null
+                ? "割り込み対象はありません"
+                : canInterrupt(interruptState)
+                  ? `割り込み可能。残り${Math.ceil(highlightRemainingMs / 1000)}秒は強調表示中。連鎖${interruptState.interruptChainCount}/${MAX_SAME_TARGET_INTERRUPTS}`
+                  : "このメンバーへの割り込み上限に達しました"}
+            </span>
           </div>
 
           <button

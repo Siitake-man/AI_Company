@@ -305,7 +305,7 @@ APIキーはTauriのsecure storage（macOS: Keychain、Windows: DPAPI、Linux: S
 
 AIオーケストレーションは自前のシンプルな実装（ラウンドロビンのfor文制御）とし、LangChain.jsは導入しない。RAG（ベクトルDB）も導入せず、会議ログはSQLiteへの単純な蓄積・直近履歴の再利用に留める。
 
-> **実装状況注記（2026-08-11）:** Phase 1の画面と基本会議ループは実装済みだが、S7割り込み状態機械、会議ログ/参加者の永続化、S8のユーザー確定決定事項入力、構造化議事録保存は未完了。品質是正の進捗は [REVIEW_ACTION_REGISTER_20260811.md](./REVIEW_ACTION_REGISTER_20260811.md) を参照する。
+> **実装状況注記（2026-08-31）:** Phase 1の画面、S7割り込み状態機械、会議ログ/参加者の確定保存、S8のユーザー確定決定事項入力、構造化議事録保存は実装済み。Tauri実機GUI E2E、CSP/Capabilities、構造化LLMエラー境界は品質是正の残件。進捗は [REVIEW_ACTION_REGISTER_20260811.md](./REVIEW_ACTION_REGISTER_20260811.md) を参照する。
 
 ### Phase 2（来月以降・優先順位順）
 
